@@ -1,13 +1,28 @@
 [project]
 name = "ex-code"
 version = "0.1.0"
-description = ""
+description = "Ferramenta CLI para automacao de scaffolding e edicao de projetos backend (FastAPI e Spring Boot)"
 authors = [
     {name = "YvesPereira21"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
+    "inquirerpy>=0.3.4",
+    "rich>=13.7.0",
+    "jinja2>=3.1.3",
+    "libcst>=1.1.0",
+    "pydantic>=2.6.0",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+ex-code = "ex_code.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.3.0",
 ]
 
 [tool.poetry]
