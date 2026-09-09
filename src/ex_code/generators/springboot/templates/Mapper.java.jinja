@@ -1,0 +1,16 @@
+package {{ package_name }};
+
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingConstants;
+import {{ entity_import }};
+{% for dto_import in dto_imports %}
+import {{ dto_import }};
+{% endfor %}
+
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+public interface {{ entity.name }}Mapper {
+{% for dto in dtos %}
+    {{ entity.name }} toEntity({{ dto.name }} dto);
+    {{ dto.name }} toDto({{ entity.name }} entity);
+{% endfor %}
+}

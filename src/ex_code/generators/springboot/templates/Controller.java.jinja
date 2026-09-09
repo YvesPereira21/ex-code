@@ -1,0 +1,10 @@
+package {{ package_name }};
+
+import org.springframework.web.bind.annotation.*;
+import {{ entity_import }};
+import {{ service_import }};
+
+@RestController
+@RequestMapping("/api/{{ entity.name | lower }}s")
+public class {{ entity.name }}Controller {
+}

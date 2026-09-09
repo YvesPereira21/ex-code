@@ -1,0 +1,29 @@
+# {{ config.name }}
+
+{{ config.description or 'Projeto backend Spring Boot gerado automaticamente pelo ex-code.' }}
+
+## Stack Tecnológica
+- **Framework:** Spring Boot 3.x/4.x
+- **Linguagem:** Java 21
+- **Gerenciador de Build:** Maven
+- **Arquitetura:** {{ 'Em Camadas' if config.architecture.value == 'layered' else 'Separada por Domínio' }}
+- **Persistência:** Spring Data JPA (Hibernate)
+- **Mapeamento:** MapStruct
+- **Modelos:** Lombok
+- **DTOs:** Java Records
+- **Banco de Dados:** {{ config.database.value | upper }}
+
+## Como Executar
+
+### 1. Compilar e Executar
+
+Com o Maven Wrapper:
+```bash
+./mvnw clean spring-boot:run
+```
+
+Ou empacotar:
+```bash
+./mvnw clean package
+java -jar target/{{ config.name }}-0.0.1-SNAPSHOT.jar
+```

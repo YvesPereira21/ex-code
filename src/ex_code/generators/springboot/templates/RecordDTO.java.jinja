@@ -1,0 +1,11 @@
+package {{ package_name }};
+
+import java.math.*;
+import java.time.*;
+import java.util.*;
+
+public record {{ schema.name }}(
+{% for f in schema.fields %}
+    {{ f.type }} {{ f.name }}{{ "," if not loop.last else "" }}
+{% endfor %}
+) {}
