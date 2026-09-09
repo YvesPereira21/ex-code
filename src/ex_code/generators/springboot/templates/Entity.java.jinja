@@ -1,0 +1,57 @@
+package {{ package_name }};
+
+import jakarta.persistence.*;
+import java.math.*;
+import java.time.*;
+import java.util.*;
+import lombok.*;
+{% for rel_import in relationship_imports %}
+import {{ rel_import }};
+{% endfor %}
+
+@Entity
+@Table(name = "{{ entity.table_name }}")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class {{ entity.name }} {
+
+{% for field in entity.fields %}
+{% if field.is_pk %}
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "{{ field.db_column_name }}", updatable = false, nullable = false)
+    private UUID {{ field.name }};
+{% else %}
+    @Column(name = "{{ field.db_column_name }}"{% if not field.is_nullable %}, nullable = false{% endif %}{% if field.is_unique %}, unique = true{% endif %})
+    private {{ field.type }} {{ field.name }};
+{% endif %}
+{% endfor %}
+
+{% for rel in entity.relationships %}
+{% if rel.relationship_type.value == 'ManyToOne' %}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "{{ rel.join_column }}", nullable = false)
+    private {{ rel.target_entity }} {{ rel.name }};
+{% elif rel.relationship_type.value == 'OneToMany' %}
+    @OneToMany(mappedBy = "{{ entity.name | lower }}", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<{{ rel.target_entity }}> {{ rel.name }} = new ArrayList<>();
+{% elif rel.relationship_type.value == 'OneToOne' %}
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "{{ rel.join_column }}")
+    private {{ rel.target_entity }} {{ rel.name }};
+{% elif rel.relationship_type.value == 'ManyToMany' %}
+    @ManyToMany
+    @JoinTable(
+        name = "{{ entity.name | lower }}_{{ rel.target_entity | lower }}",
+        joinColumns = @JoinColumn(name = "{{ entity.name | lower }}_id"),
+        inverseJoinColumns = @JoinColumn(name = "{{ rel.target_entity | lower }}_id")
+    )
+    @Builder.Default
+    private List<{{ rel.target_entity }}> {{ rel.name }} = new ArrayList<>();
+{% endif %}
+{% endfor %}
+}

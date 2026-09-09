@@ -1,0 +1,10 @@
+package {{ package_name }};
+
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import {{ entity_import }};
+
+@Repository
+public interface {{ entity.name }}Repository extends JpaRepository<{{ entity.name }}, UUID> {
+}
