@@ -1,0 +1,62 @@
+from datetime import date, datetime, time
+from decimal import Decimal
+import uuid
+from pydantic import BaseModel, ConfigDict
+
+
+class {{ entity.name }}Base(BaseModel):
+{% for field in entity.fields %}
+{% if not field.is_pk %}
+{% if field.is_nullable %}
+    {{ field.name }}: {{ field.type }} | None = None
+{% else %}
+    {{ field.name }}: {{ field.type }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if entity.fields | length <= 1 %}
+    pass
+{% endif %}
+
+
+class {{ entity.name }}Create({{ entity.name }}Base):
+    pass
+
+
+class {{ entity.name }}Update(BaseModel):
+{% for field in entity.fields %}
+{% if not field.is_pk %}
+    {{ field.name }}: {{ field.type }} | None = None
+{% endif %}
+{% endfor %}
+{% if entity.fields | length <= 1 %}
+    pass
+{% endif %}
+
+
+class {{ entity.name }}Response({{ entity.name }}Base):
+{% for field in entity.fields %}
+{% if field.is_pk %}
+    {{ field.name }}: uuid.UUID
+{% endif %}
+{% endfor %}
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+{% for schema in entity.schemas %}
+class {{ schema.name }}(BaseModel):
+{% for f in schema.fields %}
+{% if f.is_nullable %}
+    {{ f.name }}: {{ f.type }} | None = None
+{% else %}
+    {{ f.name }}: {{ f.type }}
+{% endif %}
+{% endfor %}
+{% if not schema.fields %}
+    pass
+{% endif %}
+
+    model_config = ConfigDict(from_attributes=True)
+
+{% endfor %}

@@ -1,0 +1,50 @@
+from datetime import date, datetime, time
+from decimal import Decimal
+from typing import TYPE_CHECKING
+import uuid
+
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Table, Column
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+
+{% if entity.relationships %}
+if TYPE_CHECKING:
+{% for rel in entity.relationships %}
+{% if config.architecture.value == 'layered' %}
+    from app.models.{{ rel.target_entity | lower }} import {{ rel.target_entity }}
+{% else %}
+    from app.modules.{{ rel.target_entity | lower }}.models import {{ rel.target_entity }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+
+class {{ entity.name }}(Base):
+    __tablename__ = "{{ entity.table_name }}"
+
+{% for field in entity.fields %}
+{% if field.is_pk %}
+    {{ field.name }}: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+{% else %}
+{% if field.is_nullable %}
+    {{ field.name }}: Mapped[{{ field.type }} | None] = mapped_column(nullable=True{% if field.is_unique %}, unique=True{% endif %})
+{% else %}
+    {{ field.name }}: Mapped[{{ field.type }}] = mapped_column(nullable=False{% if field.is_unique %}, unique=True{% endif %})
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{% for rel in entity.relationships %}
+{% if rel.relationship_type.value == 'ManyToOne' %}
+    {{ rel.join_column }}: Mapped[uuid.UUID] = mapped_column(ForeignKey("{{ rel.target_entity | lower }}s.{{ rel.target_entity | lower }}_id"), nullable=False)
+    {{ rel.name }}: Mapped["{{ rel.target_entity }}"] = relationship(back_populates="{{ entity.name | lower }}s")
+{% elif rel.relationship_type.value == 'OneToMany' %}
+    {{ rel.name }}: Mapped[list["{{ rel.target_entity }}"]] = relationship(back_populates="{{ entity.name | lower }}", cascade="all, delete-orphan")
+{% elif rel.relationship_type.value == 'OneToOne' %}
+    {{ rel.name }}: Mapped["{{ rel.target_entity }}"] = relationship(back_populates="{{ entity.name | lower }}", uselist=False)
+{% elif rel.relationship_type.value == 'ManyToMany' %}
+    {{ rel.name }}: Mapped[list["{{ rel.target_entity }}"]] = relationship(secondary="{{ entity.name | lower }}_{{ rel.target_entity | lower }}", back_populates="{{ entity.name | lower }}s")
+{% endif %}
+{% endfor %}

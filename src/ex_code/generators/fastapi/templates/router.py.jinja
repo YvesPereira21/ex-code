@@ -1,0 +1,52 @@
+from collections.abc import Sequence
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+{% if config.architecture.value == 'layered' %}
+from app.models.{{ entity.name | lower }} import {{ entity.name }}
+from app.schemas.{{ entity.name | lower }} import (
+    {{ entity.name }}Create,
+    {{ entity.name }}Response,
+    {{ entity.name }}Update,
+)
+{% else %}
+from app.modules.{{ entity.name | lower }}.models import {{ entity.name }}
+from app.modules.{{ entity.name | lower }}.schemas import (
+    {{ entity.name }}Create,
+    {{ entity.name }}Response,
+    {{ entity.name }}Update,
+)
+{% endif %}
+
+router = APIRouter(
+    prefix="/{{ entity.name | lower }}s",
+    tags=["{{ entity.name }}s"],
+)
+
+
+@router.get("/", response_model=list[{{ entity.name }}Response])
+async def list_{{ entity.name | lower }}s(db: AsyncSession = Depends(get_db)):
+    pass
+
+
+@router.post("/", response_model={{ entity.name }}Response, status_code=status.HTTP_201_CREATED)
+async def create_{{ entity.name | lower }}(payload: {{ entity.name }}Create, db: AsyncSession = Depends(get_db)):
+    pass
+
+
+@router.get("/{id}", response_model={{ entity.name }}Response)
+async def get_{{ entity.name | lower }}(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    pass
+
+
+@router.put("/{id}", response_model={{ entity.name }}Response)
+async def update_{{ entity.name | lower }}(id: uuid.UUID, payload: {{ entity.name }}Update, db: AsyncSession = Depends(get_db)):
+    pass
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_{{ entity.name | lower }}(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    pass

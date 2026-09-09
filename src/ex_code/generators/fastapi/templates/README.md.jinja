@@ -1,0 +1,42 @@
+# {{ config.name }}
+
+{{ config.description or 'Projeto backend gerado automaticamente pelo ex-code.' }}
+
+## Stack Tecnológica
+- **Framework:** FastAPI
+- **Arquitetura:** {{ 'Em Camadas' if config.architecture.value == 'layered' else 'Separada por Domínio' }}
+- **Persistência:** SQLAlchemy 2.0 (Assíncrono)
+- **Migrações:** Alembic
+- **Banco de Dados:** {{ config.database.value | upper }}
+
+## Como Executar
+
+### 1. Instalar Dependências
+
+Com Poetry:
+```bash
+poetry install
+```
+
+Com Pip:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Executar Migrações do Banco
+
+```bash
+alembic upgrade head
+```
+
+### 3. Iniciar o Servidor
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+Acesse a documentação interativa em:
+- Swagger UI: `http://localhost:8000/docs`
+- Redoc: `http://localhost:8000/redoc`
