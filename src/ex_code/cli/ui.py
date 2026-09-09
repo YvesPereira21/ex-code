@@ -74,3 +74,21 @@ def display_project_summary(config) -> None:
             ent_table.add_row(entity.name, fields_str, rels_str)
 
         console.print(ent_table)
+
+
+def display_diff(diff_text: str, filename: str) -> None:
+    """Display a colored syntax-highlighted diff in the terminal."""
+    from rich.syntax import Syntax
+
+    if not diff_text.strip():
+        console.print(f"[dim]Nenhuma alteração detectada em {filename}[/dim]")
+        return
+
+    syntax = Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
+    console.print(
+        Panel(
+            syntax,
+            title=f"[bold]Alterações planejadas: {filename}[/bold]",
+            border_style="yellow",
+        )
+    )
