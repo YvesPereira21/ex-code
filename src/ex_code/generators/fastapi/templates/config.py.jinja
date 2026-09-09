@@ -1,0 +1,18 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "{{ config.name }}"
+    DEBUG: bool = True
+{% if config.database.value == 'postgresql' %}
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/{{ config.name | replace('-', '_') }}"
+{% elif config.database.value == 'mysql' %}
+    DATABASE_URL: str = "mysql+aiomysql://root:root@localhost:3306/{{ config.name | replace('-', '_') }}"
+{% elif config.database.value == 'sqlite' %}
+    DATABASE_URL: str = "sqlite+aiosqlite:///./{{ config.name | replace('-', '_') }}.db"
+{% endif %}
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+
+settings = Settings()

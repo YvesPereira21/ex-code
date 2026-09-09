@@ -1,0 +1,38 @@
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+{% if config.architecture.value == 'layered' %}
+{% for entity in config.entities %}
+from app.api.routers.{{ entity.name | lower }} import router as {{ entity.name | lower }}_router
+{% endfor %}
+{% else %}
+{% for entity in config.entities %}
+from app.modules.{{ entity.name | lower }}.router import router as {{ entity.name | lower }}_router
+{% endfor %}
+{% endif %}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicialização (startup)
+    yield
+    # Finalização (shutdown)
+
+
+app = FastAPI(
+    title="{{ config.name }}",
+    description="{{ config.description or '' }}",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok", "project": "{{ config.name }}"}
+
+
+# Registro dos routers
+{% for entity in config.entities %}
+app.include_router({{ entity.name | lower }}_router)
+{% endfor %}
