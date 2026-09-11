@@ -1,6 +1,7 @@
 """Client and fallback generator for Spring Initializr (start.spring.io)."""
 
 import io
+import os
 import shutil
 import subprocess
 import tarfile
@@ -18,7 +19,9 @@ class SpringInitializrClient:
     INITIALIZR_URL = "https://start.spring.io/starter.tgz"
 
     @classmethod
-    def download_and_extract(cls, config: ProjectConfig, target_dir: Path) -> bool:
+    def download_and_extract(
+        cls, config: ProjectConfig, target_dir: Path, offline: bool = False
+    ) -> bool:
         """
         Download starter.tgz from start.spring.io using curl or urllib and extract into target_dir.
         Returns True if successful, False if offline/failed.
@@ -27,6 +30,11 @@ class SpringInitializrClient:
         artifact_id = to_snake_case(config.name).replace("_", "-")
         pkg_suffix = to_snake_case(config.name).replace("-", "").replace("_", "")
         package_name = f"com.excode.{pkg_suffix}"
+
+        # If offline requested or environment variable set, generate locally and instantly
+        if offline or os.environ.get("EX_CODE_OFFLINE") == "1":
+            cls._create_offline_skeleton(config, target_dir, package_name, artifact_id)
+            return True
 
         # Map dependencies
         deps = ["web", "data-jpa", "lombok", "validation"]
@@ -54,33 +62,45 @@ class SpringInitializrClient:
             "baseDir": "",
         }
 
-        # Try curl command first if curl is available
+        # Try curl with strict timeouts and safe in-memory extraction
         curl_bin = shutil.which("curl")
-        tar_bin = shutil.which("tar")
-        if curl_bin and tar_bin:
+        if curl_bin:
             try:
-                curl_args = [curl_bin, "-s", "-f", cls.INITIALIZR_URL]
+                curl_args = [
+                    curl_bin,
+                    "-s",
+                    "-f",
+                    "--connect-timeout",
+                    "3",
+                    "--max-time",
+                    "8",
+                    cls.INITIALIZR_URL,
+                ]
                 for k, v in data.items():
                     curl_args.extend(["-d", f"{k}={v}"])
 
-                proc = subprocess.Popen(
-                    curl_args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                res = subprocess.run(
+                    curl_args,
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
                 )
-                tar_proc = subprocess.Popen(
-                    [tar_bin, "-xz", "-C", str(target_dir)],
-                    stdin=proc.stdout,
-                    stderr=subprocess.DEVNULL,
-                )
-                if proc.stdout:
-                    proc.stdout.close()
-                tar_proc.communicate(timeout=15)
-                if tar_proc.returncode == 0 and (target_dir / "pom.xml").is_file():
-                    return True
-            except (subprocess.SubprocessError, OSError, TimeoutError):
-                # Fallback to urllib or offline template
+                if res.returncode == 0 and res.stdout:
+                    with tarfile.open(
+                        fileobj=io.BytesIO(res.stdout), mode="r:gz"
+                    ) as tar:
+                        tar.extractall(path=target_dir)
+                    if (target_dir / "pom.xml").is_file():
+                        return True
+            except (
+                subprocess.SubprocessError,
+                tarfile.TarError,
+                OSError,
+                TimeoutError,
+            ):
                 pass
 
-        # Try urllib fallback
+        # Try urllib fallback with fast timeout
         try:
             encoded_data = urllib.parse.urlencode(data).encode("utf-8")
             req = urllib.request.Request(
@@ -88,17 +108,16 @@ class SpringInitializrClient:
                 data=encoded_data,
                 headers={"User-Agent": "ex-code/0.1.0"},
             )
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(req, timeout=4) as response:
                 content = response.read()
                 with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
                     tar.extractall(path=target_dir)
                 if (target_dir / "pom.xml").is_file():
                     return True
         except (urllib.error.URLError, tarfile.TarError, OSError, TimeoutError):
-            # Fallback to local offline template
             pass
 
-        # Fallback offline generator
+        # Fallback offline generator (instant, 100% offline, lightweight)
         cls._create_offline_skeleton(config, target_dir, package_name, artifact_id)
         return False
 

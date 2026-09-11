@@ -1,11 +1,13 @@
 """Entrypoint for the ex-code CLI tool."""
 
+import sys
+
+from ex_code.cli.app import run_app
+
 
 def main() -> None:
     """Main CLI entrypoint."""
-    print(
-        "ex-code: Ferramenta de automação de scaffolding e edição de projetos backend"
-    )
+    sys.exit(run_app())
 
 
 if __name__ == "__main__":
