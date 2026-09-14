@@ -9,6 +9,32 @@ class ProjectDetector:
     """Detects whether an existing project uses FastAPI or Spring Boot, and its architecture pattern."""
 
     @classmethod
+    def find_project_root(cls, start_path: Path | str) -> Path:
+        """Find the root directory of a project by traversing upwards from start_path."""
+        current = Path(start_path).resolve()
+        if current.is_file():
+            current = current.parent
+
+        # 1. Primary project root markers
+        for candidate in [current, *current.parents]:
+            if (
+                (candidate / ".excode.json").is_file()
+                or (candidate / "pom.xml").is_file()
+                or (candidate / "build.gradle").is_file()
+                or (candidate / "build.gradle.kts").is_file()
+                or (candidate / "pyproject.toml").is_file()
+                or (candidate / "requirements.txt").is_file()
+                or (candidate / "app" / "main.py").is_file()
+            ):
+                return candidate
+
+        # 2. Secondary fallback (standalone root with main.py)
+        for candidate in [current, *current.parents]:
+            if (candidate / "main.py").is_file():
+                return candidate
+        return current
+
+    @classmethod
     def detect_framework(cls, project_path: Path | str) -> FrameworkType | None:
         """Detect the framework used in the given directory."""
         path = Path(project_path).resolve()

@@ -96,3 +96,60 @@ def test_scan_fastapi_without_metadata(tmp_path: Path):
 def test_scan_invalid_path():
     with pytest.raises(FileNotFoundError):
         ProjectScanner.scan_project("/path/that/does/not/exist")
+
+
+def test_find_project_root_and_scan_subfolder(tmp_path: Path):
+    proj_dir = tmp_path / "subfolder_proj"
+    pk = create_pk_field("Client", FrameworkType.FASTAPI)
+    client = EntityDefinition(
+        name="Client", fields=[pk, FieldDefinition(name="email", type="str")]
+    )
+
+    config = ProjectConfig(
+        name="subfolder-proj",
+        output_path=str(proj_dir),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        entities=[client],
+    )
+    FastAPIGenerator().generate_project(config)
+
+    subfolder = proj_dir / "app" / "models"
+    model_file = subfolder / "client.py"
+    assert model_file.is_file()
+
+    # Find project root from subfolder and from file
+    assert ProjectDetector.find_project_root(subfolder) == proj_dir
+    assert ProjectDetector.find_project_root(model_file) == proj_dir
+
+    # Scan project passing subfolder and file
+    scanned_from_sub = ProjectScanner.scan_project(subfolder)
+    assert scanned_from_sub.name == "subfolder-proj"
+    assert len(scanned_from_sub.entities) == 1
+
+    scanned_from_file = ProjectScanner.scan_project(model_file)
+    assert scanned_from_file.name == "subfolder-proj"
+
+
+def test_get_editable_files_fastapi(tmp_path: Path):
+    proj_dir = tmp_path / "editable_proj"
+    pk = create_pk_field("Product", FrameworkType.FASTAPI)
+    product = EntityDefinition(
+        name="Product", fields=[pk, FieldDefinition(name="sku", type="str")]
+    )
+
+    config = ProjectConfig(
+        name="editable-proj",
+        output_path=str(proj_dir),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        entities=[product],
+    )
+    FastAPIGenerator().generate_project(config)
+
+    files = ProjectScanner.get_editable_files(proj_dir, config)
+    assert len(files) >= 2
+    types = [f["type"] for f in files]
+    assert "Model (Entidade)" in types
+    assert "Schema / DTO" in types
+    assert any("product.py" in f["filename"] for f in files)

@@ -9,6 +9,7 @@ from ex_code.analyzer.project_scanner import ProjectScanner
 from ex_code.cli.ui import (
     console,
     display_diff,
+    display_editable_files_table,
     display_project_summary,
     print_banner,
     print_error,
@@ -18,6 +19,7 @@ from ex_code.cli.ui import (
 )
 from ex_code.core.models import FieldDefinition, RelationshipDefinition
 from ex_code.core.types import (
+    ArchitectureType,
     FrameworkType,
     RelationshipType,
     get_supported_types,
@@ -37,12 +39,14 @@ class EditProjectWizard:
             "EDITAR PROJETO", "Análise e modificação cirúrgica com backup preventivo"
         )
 
-        project_path = select_directory(
-            message="Selecione a pasta do projeto existente para editar:"
+        selected_target = select_directory(
+            message="Selecione a pasta ou arquivo do projeto existente para editar:",
+            show_files=True,
         )
 
         try:
-            config = ProjectScanner.scan_project(project_path)
+            config = ProjectScanner.scan_project(selected_target)
+            project_path = Path(config.output_path).resolve()
         except (FileNotFoundError, ValueError, OSError) as e:
             print_error(f"Falha ao analisar projeto: {e}")
             return None
@@ -50,52 +54,154 @@ class EditProjectWizard:
         print_success(f"Projeto identificado com sucesso: [bold]{config.name}[/bold]")
         display_project_summary(config)
 
+        editable_files = ProjectScanner.get_editable_files(project_path, config)
+        display_editable_files_table(editable_files)
+
         if config.framework == FrameworkType.FASTAPI:
             modifier: CodeModifier = FastAPICodeModifier(project_path, config)
         else:
             modifier: CodeModifier = SpringBootCodeModifier(project_path, config)
 
+        # Se o usuário tiver selecionado um arquivo específico diretamente
+        if selected_target.is_file():
+            target_stem = selected_target.stem.lower()
+            matching_entity = next(
+                (
+                    e
+                    for e in config.entities
+                    if e.name.lower() in target_stem
+                    or target_stem.startswith(e.name.lower())
+                ),
+                None,
+            )
+            if matching_entity:
+                confirm = inquirer.confirm(
+                    message=f"Você selecionou o arquivo '{selected_target.name}'. Deseja editar '{matching_entity.name}' diretamente?",
+                    default=True,
+                ).execute()
+                if confirm:
+                    if "schema" in target_stem or "dto" in target_stem:
+                        self._edit_schema_flow(
+                            modifier,
+                            config,
+                            editable_files,
+                            default_entity_name=matching_entity.name,
+                        )
+                    else:
+                        self._edit_entity_flow(
+                            modifier, config, default_entity_name=matching_entity.name
+                        )
+
         while True:
+            editable_files = ProjectScanner.get_editable_files(project_path, config)
             choice = inquirer.select(
                 message="\nSelecione o que deseja editar:",
                 choices=[
-                    Choice("entity", "Entidade (campos e relacionamentos)"),
-                    Choice("schema", "Schema / DTO (campos e referências)"),
-                    Choice("exit", "Finalizar / Sair"),
+                    Choice(
+                        "file",
+                        "📄 Selecionar arquivo específico para editar (Model ou Schema/DTO)",
+                    ),
+                    Choice(
+                        "entity",
+                        "🏛️  Editar por Entidade (Model e Schema sincronizados)",
+                    ),
+                    Choice("schema", "📋 Editar Schemas / DTOs"),
+                    Choice("list_files", "🔍 Visualizar tabela de arquivos editáveis"),
+                    Choice("exit", "🚪 Finalizar / Sair"),
                 ],
             ).execute()
 
             if choice == "exit":
                 break
+            elif choice == "file":
+                self._edit_by_file_flow(modifier, config, editable_files)
             elif choice == "entity":
                 self._edit_entity_flow(modifier, config)
             elif choice == "schema":
-                self._edit_schema_flow(modifier, config)
+                self._edit_schema_flow(modifier, config, editable_files)
+            elif choice == "list_files":
+                display_editable_files_table(editable_files)
 
         print_success("Sessão de edição concluída.")
         return project_path
 
-    def _edit_entity_flow(self, modifier: CodeModifier, config) -> None:
+    def _edit_by_file_flow(
+        self,
+        modifier: CodeModifier,
+        config,
+        editable_files: list[dict[str, str]],
+    ) -> None:
+        """Select a specific file to edit."""
+        if not editable_files:
+            print_warning("Nenhum arquivo editável encontrado no projeto.")
+            return
+
+        choices = [
+            Choice(
+                value=item,
+                name=f"{item['rel_path']}  [{item['type']}: {item['entity']}]",
+            )
+            for item in editable_files
+        ]
+        choices.append(Choice(value=None, name="Voltar"))
+
+        selected = inquirer.select(
+            message="Selecione o arquivo que deseja editar:",
+            choices=choices,
+        ).execute()
+
+        if not selected:
+            return
+
+        ent_name = selected["entity"]
+        file_type = selected["type"]
+
+        if "Schema" in file_type or "DTO" in file_type:
+            self._edit_schema_flow(
+                modifier, config, editable_files, default_entity_name=ent_name
+            )
+        else:
+            self._edit_entity_flow(modifier, config, default_entity_name=ent_name)
+
+    def _edit_entity_flow(
+        self, modifier: CodeModifier, config, default_entity_name: str | None = None
+    ) -> None:
         """Submenu for editing entities."""
         if not config.entities:
             print_warning("Nenhuma entidade encontrada no projeto para edição.")
             return
 
-        ent_names = [e.name for e in config.entities]
-        selected_ent_name = inquirer.select(
-            message="Selecione a entidade que deseja editar:",
-            choices=ent_names + ["Voltar"],
-        ).execute()
+        if default_entity_name:
+            selected_ent = config.get_entity(default_entity_name)
+        else:
+            choices = []
+            for e in config.entities:
+                if config.framework == FrameworkType.FASTAPI:
+                    if config.architecture == ArchitectureType.LAYERED:
+                        file_hint = f"app/models/{e.name.lower()}.py"
+                    else:
+                        file_hint = f"app/modules/{e.name.lower()}/models.py"
+                else:
+                    file_hint = f"{e.name}.java"
+                choices.append(Choice(value=e.name, name=f"{e.name} ({file_hint})"))
+            choices.append(Choice(value="back", name="Voltar"))
 
-        if selected_ent_name == "Voltar":
-            return
+            selected_ent_name = inquirer.select(
+                message="Selecione a entidade/model que deseja editar:",
+                choices=choices,
+            ).execute()
 
-        selected_ent = config.get_entity(selected_ent_name)
+            if selected_ent_name == "back":
+                return
+
+            selected_ent = config.get_entity(selected_ent_name)
+
         if not selected_ent:
             return
 
+        ent_names = [e.name for e in config.entities]
         action = inquirer.select(
-            message=f"Ação para a entidade '{selected_ent_name}':",
+            message=f"Ação para a entidade '{selected_ent.name}':",
             choices=[
                 Choice("add_field", "Adicionar campo"),
                 Choice("remove_field", "Remover campo"),
@@ -264,16 +370,83 @@ class EditProjectWizard:
 
         return modifier.remove_relationship(entity.name, rel_name)
 
-    def _edit_schema_flow(self, modifier: CodeModifier, config) -> None:
+    def _edit_schema_flow(
+        self,
+        modifier: CodeModifier,
+        config,
+        editable_files: list[dict[str, str]] | None = None,
+        default_entity_name: str | None = None,
+    ) -> None:
         """Submenu for editing Schemas/DTOs."""
-        # Schemas can be edited similarly through modifier
-        print_banner(
-            "Edição de Schemas/DTOs",
-            "Os DTOs são sincronizados automaticamente com suas entidades.",
-        )
+        if not config.entities:
+            print_warning("Nenhum schema encontrado no projeto para edição.")
+            return
+
+        if default_entity_name:
+            selected_ent = config.get_entity(default_entity_name)
+        else:
+            choices = []
+            for e in config.entities:
+                if config.framework == FrameworkType.FASTAPI:
+                    if config.architecture == ArchitectureType.LAYERED:
+                        file_hint = f"app/schemas/{e.name.lower()}.py"
+                    else:
+                        file_hint = f"app/modules/{e.name.lower()}/schemas.py"
+                else:
+                    file_hint = f"{e.name}DTO.java"
+                choices.append(
+                    Choice(
+                        value=e.name,
+                        name=f"Schema / DTO de {e.name} ({file_hint})",
+                    )
+                )
+            choices.append(Choice(value="back", name="Voltar"))
+
+            selected_name = inquirer.select(
+                message="Selecione o Schema/DTO que deseja editar:",
+                choices=choices,
+            ).execute()
+
+            if selected_name == "back":
+                return
+
+            selected_ent = config.get_entity(selected_name)
+
+        if not selected_ent:
+            return
+
         console.print(
-            "[dim]Para alterar campos em DTOs derivados, altere os campos da respectiva entidade.[/dim]"
+            f"\n[cyan]Editando Schema/DTO de [bold]{selected_ent.name}[/bold]. As alterações serão sincronizadas com o código do projeto.[/cyan]\n"
         )
+
+        action = inquirer.select(
+            message=f"Ação para o Schema/DTO '{selected_ent.name}':",
+            choices=[
+                Choice("add_field", "Adicionar campo ao Schema (sincroniza Model)"),
+                Choice("remove_field", "Remover campo do Schema (sincroniza Model)"),
+                Choice("change_field_name", "Alterar nome de um campo"),
+                Choice("change_field_type", "Alterar tipo de um campo"),
+                Choice("back", "Voltar"),
+            ],
+        ).execute()
+
+        if action == "back":
+            return
+
+        changes = []
+        if action == "add_field":
+            changes = self._action_add_field(modifier, selected_ent, config.framework)
+        elif action == "remove_field":
+            changes = self._action_remove_field(modifier, selected_ent)
+        elif action == "change_field_name":
+            changes = self._action_change_field_name(modifier, selected_ent)
+        elif action == "change_field_type":
+            changes = self._action_change_field_type(
+                modifier, selected_ent, config.framework
+            )
+
+        if changes:
+            self._preview_and_apply(modifier, changes)
 
     def _preview_and_apply(
         self, modifier: CodeModifier, changes: list[tuple[Path, str, str]]

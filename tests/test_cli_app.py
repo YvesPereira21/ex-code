@@ -81,7 +81,9 @@ def test_cli_app_non_interactive_error_exits() -> None:
         patch("sys.stdin.isatty", return_value=False),
         patch("InquirerPy.inquirer.select") as mock_select,
     ):
-        mock_select.return_value.execute.side_effect = RuntimeError("Non-interactive error")
+        mock_select.return_value.execute.side_effect = RuntimeError(
+            "Non-interactive error"
+        )
         result = app.run()
         assert result == 1
 
@@ -132,3 +134,34 @@ def test_select_directory_manual_input(tmp_path: Path) -> None:
         mock_text.return_value.execute.return_value = str(target)
         selected = select_directory(start_path=tmp_path)
         assert selected == target.resolve()
+
+
+def test_select_directory_select_file(tmp_path: Path) -> None:
+    """Test selecting a file in select_directory."""
+    test_file = tmp_path / "model.py"
+    test_file.touch()
+
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.return_value = ("select", test_file)
+        selected = select_directory(start_path=tmp_path, show_files=True)
+        assert selected == test_file
+
+
+def test_display_editable_files_table() -> None:
+    """Ensure display_editable_files_table renders without exceptions."""
+    from ex_code.cli.ui import display_editable_files_table
+
+    # Empty list
+    display_editable_files_table([])
+
+    # Populated list
+    display_editable_files_table(
+        [
+            {
+                "type": "Model (Entidade)",
+                "entity": "User",
+                "filename": "user.py",
+                "rel_path": "app/models/user.py",
+            }
+        ]
+    )

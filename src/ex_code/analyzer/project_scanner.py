@@ -26,7 +26,11 @@ class ProjectScanner:
     @classmethod
     def scan_project(cls, project_path: Path | str) -> ProjectConfig:
         """Inspect and return the ProjectConfig representing the project."""
-        path = Path(project_path).resolve()
+        raw_path = Path(project_path).resolve()
+        if not raw_path.exists():
+            raise FileNotFoundError(f"O diretório ou arquivo '{raw_path}' não existe.")
+
+        path = ProjectDetector.find_project_root(raw_path)
         if not path.is_dir():
             raise FileNotFoundError(f"O diretório '{path}' não existe.")
 
@@ -60,6 +64,137 @@ class ProjectScanner:
             database=DatabaseType.POSTGRESQL,
             entities=entities,
         )
+
+    @classmethod
+    def get_editable_files(
+        cls, project_path: Path | str, config: ProjectConfig | None = None
+    ) -> list[dict[str, str]]:
+        """List all editable model and schema/DTO files in the project."""
+        raw_path = Path(project_path).resolve()
+        root = ProjectDetector.find_project_root(raw_path)
+        if config is None:
+            config = cls.scan_project(root)
+
+        files: list[dict[str, str]] = []
+
+        if config.framework == FrameworkType.FASTAPI:
+            if config.architecture == ArchitectureType.LAYERED:
+                models_dir = root / "app" / "models"
+                schemas_dir = root / "app" / "schemas"
+                if models_dir.is_dir():
+                    for f in sorted(models_dir.glob("*.py")):
+                        if f.name == "__init__.py":
+                            continue
+                        ent_name = f.stem.capitalize()
+                        matched_ent = next(
+                            (
+                                e.name
+                                for e in config.entities
+                                if e.name.lower() == f.stem.lower()
+                            ),
+                            ent_name,
+                        )
+                        files.append(
+                            {
+                                "type": "Model (Entidade)",
+                                "entity": matched_ent,
+                                "filename": f.name,
+                                "rel_path": str(f.relative_to(root)),
+                                "abs_path": str(f),
+                            }
+                        )
+                if schemas_dir.is_dir():
+                    for f in sorted(schemas_dir.glob("*.py")):
+                        if f.name == "__init__.py":
+                            continue
+                        ent_name = f.stem.capitalize()
+                        matched_ent = next(
+                            (
+                                e.name
+                                for e in config.entities
+                                if e.name.lower() == f.stem.lower()
+                            ),
+                            ent_name,
+                        )
+                        files.append(
+                            {
+                                "type": "Schema / DTO",
+                                "entity": matched_ent,
+                                "filename": f.name,
+                                "rel_path": str(f.relative_to(root)),
+                                "abs_path": str(f),
+                            }
+                        )
+            else:
+                modules_dir = root / "app" / "modules"
+                if modules_dir.is_dir():
+                    for mod in sorted(modules_dir.iterdir()):
+                        if mod.is_dir():
+                            m_file = mod / "models.py"
+                            s_file = mod / "schemas.py"
+                            ent_name = mod.name.capitalize()
+                            matched_ent = next(
+                                (
+                                    e.name
+                                    for e in config.entities
+                                    if e.name.lower() == mod.name.lower()
+                                ),
+                                ent_name,
+                            )
+                            if m_file.is_file():
+                                files.append(
+                                    {
+                                        "type": "Model (Entidade)",
+                                        "entity": matched_ent,
+                                        "filename": f"{mod.name}/models.py",
+                                        "rel_path": str(m_file.relative_to(root)),
+                                        "abs_path": str(m_file),
+                                    }
+                                )
+                            if s_file.is_file():
+                                files.append(
+                                    {
+                                        "type": "Schema / DTO",
+                                        "entity": matched_ent,
+                                        "filename": f"{mod.name}/schemas.py",
+                                        "rel_path": str(s_file.relative_to(root)),
+                                        "abs_path": str(s_file),
+                                    }
+                                )
+
+        elif config.framework == FrameworkType.SPRINGBOOT:
+            java_root = root / "src" / "main" / "java"
+            if java_root.is_dir():
+                for f in sorted(java_root.rglob("*.java")):
+                    name = f.stem
+                    if "DTO" in name or "Record" in name:
+                        ent_name = name.replace("DTO", "").replace("Record", "")
+                        files.append(
+                            {
+                                "type": "Schema / DTO",
+                                "entity": ent_name,
+                                "filename": f.name,
+                                "rel_path": str(f.relative_to(root)),
+                                "abs_path": str(f),
+                            }
+                        )
+                    elif any(e.name.lower() == name.lower() for e in config.entities):
+                        matched_ent = next(
+                            e.name
+                            for e in config.entities
+                            if e.name.lower() == name.lower()
+                        )
+                        files.append(
+                            {
+                                "type": "Model (Entidade)",
+                                "entity": matched_ent,
+                                "filename": f.name,
+                                "rel_path": str(f.relative_to(root)),
+                                "abs_path": str(f),
+                            }
+                        )
+
+        return files
 
     @classmethod
     def _scan_fastapi_entities(

@@ -78,6 +78,33 @@ def display_project_summary(config) -> None:
         console.print(ent_table)
 
 
+def display_editable_files_table(files: list[dict[str, str]]) -> None:
+    """Display a Rich table of editable project files."""
+    if not files:
+        console.print("[dim]Nenhum arquivo editável (models/schemas) encontrado.[/dim]")
+        return
+
+    table = Table(
+        title="Arquivos Editáveis Encontrados",
+        border_style="cyan",
+        show_header=True,
+    )
+    table.add_column("Tipo", style="bold cyan")
+    table.add_column("Entidade", style="bold yellow")
+    table.add_column("Arquivo", style="white")
+    table.add_column("Caminho Relativo", style="dim")
+
+    for item in files:
+        table.add_row(
+            item.get("type", "Arquivo"),
+            item.get("entity", "-"),
+            item.get("filename", "-"),
+            item.get("rel_path", "-"),
+        )
+
+    console.print(table)
+
+
 def display_diff(diff_text: str, filename: str) -> None:
     """Display a colored syntax-highlighted diff in the terminal."""
     from rich.syntax import Syntax
@@ -99,26 +126,34 @@ def display_diff(diff_text: str, filename: str) -> None:
 def select_directory(
     message: str = "Selecione o diretório:",
     start_path: Path | None = None,
+    show_files: bool = True,
 ) -> Path:
-    """Interactively browse and select a directory from the filesystem."""
+    """Interactively browse and select a directory or file from the filesystem."""
     from InquirerPy import inquirer
     from InquirerPy.base.control import Choice
 
     current = (start_path or Path.cwd()).resolve()
+    if current.is_file():
+        current = current.parent
 
     while True:
         subdirs: list[Path] = []
+        files: list[Path] = []
         try:
             for entry in sorted(current.iterdir(), key=lambda p: p.name.lower()):
-                if entry.is_dir() and not entry.name.startswith("."):
+                if entry.name.startswith("."):
+                    continue
+                if entry.is_dir():
                     subdirs.append(entry)
+                elif show_files and entry.is_file():
+                    files.append(entry)
         except (PermissionError, OSError):
             pass
 
         choices = [
             Choice(
                 value=("select", current),
-                name=f"✔  Selecionar este diretório ({current})",
+                name=f"✔  Selecionar esta pasta ({current})",
             )
         ]
 
@@ -130,7 +165,7 @@ def select_directory(
                 )
             )
 
-        for d in subdirs[:40]:
+        for d in subdirs[:30]:
             tag = ""
             if (d / ".excode.json").is_file():
                 tag = " [.excode]"
@@ -145,6 +180,24 @@ def select_directory(
                     name=f"📁 {d.name}/{tag}",
                 )
             )
+
+        if show_files:
+            for f in files[:30]:
+                if f.name.endswith(".py"):
+                    prefix = "🐍 "
+                elif f.name.endswith(".java"):
+                    prefix = "☕ "
+                elif f.name.endswith((".json", ".toml", ".xml", ".yml", ".yaml")):
+                    prefix = "⚙️  "
+                else:
+                    prefix = "📄 "
+
+                choices.append(
+                    Choice(
+                        value=("select", f),
+                        name=f"{prefix}{f.name}",
+                    )
+                )
 
         choices.append(
             Choice(
@@ -166,7 +219,7 @@ def select_directory(
         elif selected_action == "manual":
             raw = (
                 inquirer.text(
-                    message="Digite o caminho do diretório:",
+                    message="Digite o caminho:",
                     default=str(current),
                     validate=lambda x: (
                         len(x.strip()) > 0 or "O caminho não pode ser vazio."

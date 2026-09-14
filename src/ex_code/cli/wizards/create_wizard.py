@@ -111,8 +111,11 @@ class CreateProjectWizard:
         console.print("\n[bold cyan]Etapa 1: Informações Gerais[/bold cyan]")
 
         base_dir = select_directory(
-            message="Selecione o diretório onde o projeto será criado:"
+            message="Selecione o diretório onde o projeto será criado:",
+            show_files=False,
         )
+        if base_dir.is_file():
+            base_dir = base_dir.parent
 
         name = inquirer.text(
             message=f"Nome do projeto (pasta a ser criada dentro de '{base_dir.name}'):",
