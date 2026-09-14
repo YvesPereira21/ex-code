@@ -63,9 +63,9 @@ def get_supported_types(framework: FrameworkType | str) -> list[str]:
     """Return the list of displayable supported types for a framework."""
     fw = framework.value if isinstance(framework, FrameworkType) else framework.lower()
     if fw == FrameworkType.FASTAPI:
-        return list(FASTAPI_TYPE_MAP.values())
+        return list(dict.fromkeys(FASTAPI_TYPE_MAP.values()))
     elif fw == FrameworkType.SPRINGBOOT:
-        return list(SPRINGBOOT_TYPE_MAP.values())
+        return list(dict.fromkeys(SPRINGBOOT_TYPE_MAP.values()))
     raise ValueError(f"Framework '{framework}' não suportado.")
 
 

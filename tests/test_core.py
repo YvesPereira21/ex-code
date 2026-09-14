@@ -38,11 +38,13 @@ class TestTypes:
         assert "str" in fastapi_types
         assert "int" in fastapi_types
         assert "UUID" in fastapi_types
+        assert len(fastapi_types) == len(set(fastapi_types))
 
         sb_types = get_supported_types(FrameworkType.SPRINGBOOT)
         assert "String" in sb_types
         assert "Integer" in sb_types
         assert "UUID" in sb_types
+        assert len(sb_types) == len(set(sb_types))
 
     def test_resolve_framework_type(self):
         assert resolve_framework_type("string", FrameworkType.FASTAPI) == "str"
