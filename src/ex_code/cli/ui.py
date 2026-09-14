@@ -1,5 +1,7 @@
 """Rich UI styling, tables, banners, and feedback utilities."""
 
+from pathlib import Path
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -92,3 +94,85 @@ def display_diff(diff_text: str, filename: str) -> None:
             border_style="yellow",
         )
     )
+
+
+def select_directory(
+    message: str = "Selecione o diretório:",
+    start_path: Path | None = None,
+) -> Path:
+    """Interactively browse and select a directory from the filesystem."""
+    from InquirerPy import inquirer
+    from InquirerPy.base.control import Choice
+
+    current = (start_path or Path.cwd()).resolve()
+
+    while True:
+        subdirs: list[Path] = []
+        try:
+            for entry in sorted(current.iterdir(), key=lambda p: p.name.lower()):
+                if entry.is_dir() and not entry.name.startswith("."):
+                    subdirs.append(entry)
+        except (PermissionError, OSError):
+            pass
+
+        choices = [
+            Choice(
+                value=("select", current),
+                name=f"✔  Selecionar este diretório ({current})",
+            )
+        ]
+
+        if current.parent != current:
+            choices.append(
+                Choice(
+                    value=("nav", current.parent),
+                    name=f"📂 .. (Subir para {current.parent.name or '/'})",
+                )
+            )
+
+        for d in subdirs[:40]:
+            tag = ""
+            if (d / ".excode.json").is_file():
+                tag = " [.excode]"
+            elif (d / "pom.xml").is_file():
+                tag = " [Spring Boot]"
+            elif (d / "pyproject.toml").is_file() or (d / "main.py").is_file():
+                tag = " [FastAPI]"
+
+            choices.append(
+                Choice(
+                    value=("nav", d),
+                    name=f"📁 {d.name}/{tag}",
+                )
+            )
+
+        choices.append(
+            Choice(
+                value=("manual", None),
+                name="✏️   Digitar outro caminho manualmente...",
+            )
+        )
+
+        selected_action, selected_target = inquirer.select(
+            message=f"{message} [Pasta atual: {current.name or '/'}]",
+            choices=choices,
+            default=choices[0].value,
+        ).execute()
+
+        if selected_action == "select":
+            return selected_target
+        if selected_action == "nav":
+            current = selected_target
+        elif selected_action == "manual":
+            raw = (
+                inquirer.text(
+                    message="Digite o caminho do diretório:",
+                    default=str(current),
+                    validate=lambda x: (
+                        len(x.strip()) > 0 or "O caminho não pode ser vazio."
+                    ),
+                )
+                .execute()
+                .strip()
+            )
+            return Path(raw).resolve()

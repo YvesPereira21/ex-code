@@ -10,6 +10,7 @@ from ex_code.cli.ui import (
     display_project_summary,
     print_banner,
     print_success,
+    select_directory,
 )
 from ex_code.core.models import (
     EntityDefinition,
@@ -109,17 +110,21 @@ class CreateProjectWizard:
         """Etapa 1: Caminho do diretório, nome do projeto, descrição e framework."""
         console.print("\n[bold cyan]Etapa 1: Informações Gerais[/bold cyan]")
 
-        out_path = inquirer.text(
-            message="Informe o caminho do diretório onde o projeto será criado:",
-            default="./meu-projeto",
-            validate=lambda x: len(x.strip()) > 0 or "O caminho não pode ser vazio.",
-        ).execute()
+        base_dir = select_directory(
+            message="Selecione o diretório onde o projeto será criado:"
+        )
 
         name = inquirer.text(
-            message="Nome do projeto:",
-            default=Path(out_path).name,
+            message=f"Nome do projeto (pasta a ser criada dentro de '{base_dir.name}'):",
+            default="meu-projeto",
             validate=lambda x: len(x.strip()) > 0 or "O nome não pode ser vazio.",
         ).execute()
+
+        name_clean = name.strip()
+        if base_dir.name.lower() == name_clean.lower():
+            out_path = base_dir
+        else:
+            out_path = (base_dir / name_clean).resolve()
 
         description = inquirer.text(
             message="Descrição do projeto (opcional):",
@@ -136,8 +141,8 @@ class CreateProjectWizard:
         ).execute()
 
         return {
-            "output_path": Path(out_path).resolve(),
-            "name": name.strip(),
+            "output_path": out_path,
+            "name": name_clean,
             "description": description.strip() or None,
             "framework": framework_choice,
         }

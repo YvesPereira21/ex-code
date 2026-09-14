@@ -14,6 +14,7 @@ from ex_code.cli.ui import (
     print_error,
     print_success,
     print_warning,
+    select_directory,
 )
 from ex_code.core.models import FieldDefinition, RelationshipDefinition
 from ex_code.core.types import (
@@ -36,19 +37,9 @@ class EditProjectWizard:
             "EDITAR PROJETO", "Análise e modificação cirúrgica com backup preventivo"
         )
 
-        proj_path_raw = (
-            inquirer.text(
-                message="Informe o caminho da pasta do projeto existente:",
-                default=".",
-                validate=lambda x: (
-                    len(x.strip()) > 0 or "O caminho não pode ser vazio."
-                ),
-            )
-            .execute()
-            .strip()
+        project_path = select_directory(
+            message="Selecione a pasta do projeto existente para editar:"
         )
-
-        project_path = Path(proj_path_raw).resolve()
 
         try:
             config = ProjectScanner.scan_project(project_path)

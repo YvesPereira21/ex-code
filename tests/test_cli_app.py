@@ -7,6 +7,7 @@ import pytest
 
 from ex_code.__main__ import main
 from ex_code.cli.app import CLIApplication, display_welcome_banner, run_app
+from ex_code.cli.ui import select_directory
 
 
 def test_display_welcome_banner() -> None:
@@ -96,3 +97,38 @@ def test_run_app_and_main_entrypoint() -> None:
     ):
         main()
     assert exc_info.value.code == 0
+
+
+def test_select_directory_select_current(tmp_path: Path) -> None:
+    """Test selecting current directory immediately."""
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.return_value = ("select", tmp_path)
+        selected = select_directory(start_path=tmp_path)
+        assert selected == tmp_path
+
+
+def test_select_directory_navigate_and_select(tmp_path: Path) -> None:
+    """Test navigating to a subdirectory and then selecting it."""
+    sub_dir = tmp_path / "subproject"
+    sub_dir.mkdir()
+
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.side_effect = [
+            ("nav", sub_dir),
+            ("select", sub_dir),
+        ]
+        selected = select_directory(start_path=tmp_path)
+        assert selected == sub_dir
+
+
+def test_select_directory_manual_input(tmp_path: Path) -> None:
+    """Test choosing manual text input for path."""
+    target = tmp_path / "custom_dir"
+    with (
+        patch("InquirerPy.inquirer.select") as mock_select,
+        patch("InquirerPy.inquirer.text") as mock_text,
+    ):
+        mock_select.return_value.execute.return_value = ("manual", None)
+        mock_text.return_value.execute.return_value = str(target)
+        selected = select_directory(start_path=tmp_path)
+        assert selected == target.resolve()
