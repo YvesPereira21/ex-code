@@ -111,6 +111,25 @@ class EntityDefinition(BaseModel):
         self.fields = [f for f in self.fields if f.name != field_name]
         return len(self.fields) < initial_len
 
+    def update_field(self, old_field_name: str, new_field: FieldDefinition) -> bool:
+        """Update a field by old name and synchronize its schemas."""
+        found = False
+        for idx, f in enumerate(self.fields):
+            if f.name == old_field_name:
+                self.fields[idx] = new_field
+                found = True
+                break
+
+        if found:
+            for schema in self.schemas:
+                for sf in schema.fields:
+                    if sf.name == old_field_name:
+                        sf.name = new_field.name
+                        sf.type = new_field.type
+                        sf.is_nullable = new_field.is_nullable
+
+        return found
+
 
 class ProjectConfig(BaseModel):
     """Configuration root for a generated or inspected project."""
@@ -132,6 +151,24 @@ class ProjectConfig(BaseModel):
             if ent.name.lower() == name.lower():
                 return ent
         return None
+
+    def update_entity_field(
+        self, entity_name: str, old_field_name: str, new_field: FieldDefinition
+    ) -> bool:
+        """Update a field in an entity and synchronize referenced schemas across the project."""
+        ent = self.get_entity(entity_name)
+        if not ent:
+            return False
+
+        updated = ent.update_field(old_field_name, new_field)
+        for schema in self.schemas:
+            if schema.entity_ref and schema.entity_ref.lower() == entity_name.lower():
+                for sf in schema.fields:
+                    if sf.name == old_field_name:
+                        sf.name = new_field.name
+                        sf.type = new_field.type
+                        sf.is_nullable = new_field.is_nullable
+        return updated
 
     def add_entity(self, entity: EntityDefinition) -> None:
         """Add or replace an entity."""

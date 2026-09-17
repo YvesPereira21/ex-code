@@ -111,10 +111,46 @@ class SpringBootCodeModifier(CodeModifier):
     def update_field(
         self, entity_name: str, old_field_name: str, new_field: FieldDefinition
     ) -> list[tuple[Path, str, str]]:
-        changes_remove = self.remove_field(entity_name, old_field_name)
-        for path, _, mod_content in changes_remove:
-            path.write_text(mod_content, encoding="utf-8")
-        return self.add_field(entity_name, new_field)
+        changes = []
+        entity_file, dto_files = self._find_entity_and_dto_files(entity_name)
+
+        # 1. Update in @Entity class
+        if entity_file and entity_file.is_file():
+            orig = entity_file.read_text(encoding="utf-8")
+            modified = re.sub(
+                r'(@Column\([^)]*name\s*=\s*")[^"]*(")',
+                rf"\g<1>{new_field.db_column_name}\g<2>",
+                orig,
+            )
+            field_pattern = (
+                rf"(private\s+)([\w<>\[\]]+)(\s+){re.escape(old_field_name)}(\s*;)"
+            )
+            modified = re.sub(
+                field_pattern,
+                rf"\g<1>{new_field.type}\g<3>{new_field.name}\g<4>",
+                modified,
+            )
+            if modified != orig:
+                changes.append((entity_file, orig, modified))
+
+        # 2. Update in Record DTOs
+        for d_file in dto_files:
+            orig_dto = d_file.read_text(encoding="utf-8")
+            param_pattern = (
+                rf"([\w<>\[\]]+)(\s+){re.escape(old_field_name)}(\s*(?:,|[)]))"
+            )
+            modified_dto = re.sub(
+                param_pattern,
+                rf"{new_field.type}\g<2>{new_field.name}\g<3>",
+                orig_dto,
+            )
+            if modified_dto != orig_dto:
+                changes.append((d_file, orig_dto, modified_dto))
+
+        # 3. Synchronize in config models
+        self.config.update_entity_field(entity_name, old_field_name, new_field)
+
+        return changes
 
     def add_relationship(
         self, relationship: RelationshipDefinition

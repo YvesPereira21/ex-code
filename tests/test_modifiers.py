@@ -113,3 +113,86 @@ def test_springboot_modifier_add_and_remove_field(tmp_path: Path):
 
     post_rm_java = java_file.read_text()
     assert "private BigDecimal balance;" not in post_rm_java
+
+
+def test_fastapi_modifier_update_field(tmp_path: Path):
+    proj_dir = tmp_path / "fastapi_mod_update"
+    pk = create_pk_field("User", FrameworkType.FASTAPI)
+    user = EntityDefinition(
+        name="User", fields=[pk, FieldDefinition(name="name", type="str")]
+    )
+
+    config = ProjectConfig(
+        name="fastapi-update",
+        output_path=str(proj_dir),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        entities=[user],
+    )
+    FastAPIGenerator().generate_project(config)
+
+    modifier = FastAPICodeModifier(proj_dir, config)
+    new_field = FieldDefinition(name="full_name", type="str")
+    changes = modifier.update_field("User", "name", new_field)
+
+    assert len(changes) == 2  # Model and Schema
+    modifier.apply_changes(changes, make_backup=True)
+
+    # Verify model file
+    user_file = proj_dir / "app" / "models" / "user.py"
+    user_code = user_file.read_text()
+    assert "full_name: Mapped[str]" in user_code
+    assert "\n    name: Mapped[str]" not in user_code
+
+    # Verify schema file (both UserBase and UserUpdate updated)
+    schema_file = proj_dir / "app" / "schemas" / "user.py"
+    schema_code = schema_file.read_text()
+    assert "full_name: str" in schema_code
+    assert "\n    name: str" not in schema_code
+    assert "full_name: str | None = None" in schema_code
+
+    # Verify metadata in .excode.json
+    metadata = (proj_dir / ".excode.json").read_text()
+    assert "full_name" in metadata
+    assert '"name": "name"' not in metadata
+
+
+def test_springboot_modifier_update_field(tmp_path: Path):
+    proj_dir = tmp_path / "sb_mod_update"
+    pk = create_pk_field("Account", FrameworkType.SPRINGBOOT)
+    acc = EntityDefinition(
+        name="Account", fields=[pk, FieldDefinition(name="number", type="String")]
+    )
+
+    config = ProjectConfig(
+        name="sb-update",
+        output_path=str(proj_dir),
+        framework=FrameworkType.SPRINGBOOT,
+        architecture=ArchitectureType.LAYERED,
+        entities=[acc],
+    )
+    SpringBootGenerator().generate_project(config)
+
+    modifier = SpringBootCodeModifier(proj_dir, config)
+    new_field = FieldDefinition(name="account_number", type="String")
+    changes = modifier.update_field("Account", "number", new_field)
+
+    assert len(changes) >= 2  # Entity and DTO(s)
+    modifier.apply_changes(changes, make_backup=True)
+
+    # Verify Entity java file
+    java_file = next((proj_dir / "src" / "main" / "java").rglob("Account.java"))
+    java_code = java_file.read_text()
+    assert "private String account_number;" in java_code
+    assert '@Column(name = "account_number"' in java_code
+    assert "private String number;" not in java_code
+
+    # Verify DTO file
+    dto_file = next((proj_dir / "src" / "main" / "java").rglob("*DTO.java"))
+    dto_code = dto_file.read_text()
+    assert "String account_number" in dto_code
+    assert "String number" not in dto_code
+
+    # Verify metadata in .excode.json
+    metadata = (proj_dir / ".excode.json").read_text()
+    assert "account_number" in metadata
