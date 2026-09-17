@@ -8,7 +8,12 @@ from ex_code.core.metadata import MetadataManager
 from ex_code.core.models import ProjectConfig
 from ex_code.core.types import ArchitectureType, to_snake_case
 from ex_code.generators.base import FrameworkGenerator
-from ex_code.generators.springboot.initializr import SpringInitializrClient
+from ex_code.generators.springboot.initializr import (
+    DATABASE_DRIVER_SPECS,
+    SPRING_DEPENDENCY_SPECS,
+    SpringInitializrClient,
+    format_dependency_xml,
+)
 
 
 class SpringBootGenerator(FrameworkGenerator):
@@ -404,6 +409,29 @@ class SpringBootGenerator(FrameworkGenerator):
 \t\t</dependency>
 \t</dependencies>"""
             content = content.replace("</dependencies>", mapstruct_dep, 1)
+
+        # Check database driver
+        if config and config.database in DATABASE_DRIVER_SPECS:
+            driver_spec = DATABASE_DRIVER_SPECS[config.database]
+            art = str(driver_spec["artifactId"])
+            if f"<artifactId>{art}</artifactId>" not in content:
+                xml_snippet = format_dependency_xml(driver_spec)
+                content = content.replace(
+                    "</dependencies>", f"{xml_snippet}\n\t</dependencies>", 1
+                )
+
+        # Check configured dependencies
+        if config and config.dependencies:
+            for dep in config.dependencies:
+                clean_dep = dep.strip().lower()
+                if clean_dep in SPRING_DEPENDENCY_SPECS:
+                    spec = SPRING_DEPENDENCY_SPECS[clean_dep]
+                    art = str(spec["artifactId"])
+                    if f"<artifactId>{art}</artifactId>" not in content:
+                        xml_snippet = format_dependency_xml(spec)
+                        content = content.replace(
+                            "</dependencies>", f"{xml_snippet}\n\t</dependencies>", 1
+                        )
 
         # 3. Check maven-compiler-plugin and annotationProcessorPaths
         compiler_plugin = """\t\t\t<plugin>

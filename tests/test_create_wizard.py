@@ -238,3 +238,46 @@ def test_step_1_basic_info_springboot(tmp_path: Path):
         assert info["framework"] == FrameworkType.SPRINGBOOT
         assert info["group_id"] == "com.empresa.departamento"
         assert info["artifact_id"] == "servico-pedidos"
+
+
+def test_step_6_database_and_dependencies_springboot():
+    """Test step 6 for Spring Boot uses checkbox selection without prompt for manual text input."""
+    wizard = CreateProjectWizard()
+
+    with (
+        patch("InquirerPy.inquirer.select") as mock_select,
+        patch("InquirerPy.inquirer.checkbox") as mock_checkbox,
+        patch("InquirerPy.inquirer.text") as mock_text,
+    ):
+        mock_select.return_value.execute.return_value = DatabaseType.POSTGRESQL
+        mock_checkbox.return_value.execute.return_value = [
+            "data-jpa",
+            "lombok",
+            "security",
+            "flyway",
+        ]
+
+        db, deps = wizard.step_6_database_and_dependencies(FrameworkType.SPRINGBOOT)
+        assert db == DatabaseType.POSTGRESQL
+        assert deps == ["data-jpa", "lombok", "security", "flyway"]
+        # Ensure text prompt was NOT called for Spring Boot
+        mock_text.assert_not_called()
+
+
+def test_step_6_database_and_dependencies_fastapi():
+    """Test step 6 for FastAPI uses checkbox selection and optional manual text input."""
+    wizard = CreateProjectWizard()
+
+    with (
+        patch("InquirerPy.inquirer.select") as mock_select,
+        patch("InquirerPy.inquirer.checkbox") as mock_checkbox,
+        patch("InquirerPy.inquirer.text") as mock_text,
+    ):
+        mock_select.return_value.execute.return_value = DatabaseType.POSTGRESQL
+        mock_checkbox.return_value.execute.return_value = ["redis"]
+        mock_text.return_value.execute.return_value = "celery, httpx"
+
+        db, deps = wizard.step_6_database_and_dependencies(FrameworkType.FASTAPI)
+        assert db == DatabaseType.POSTGRESQL
+        assert deps == ["redis", "celery", "httpx"]
+        mock_text.assert_called_once()

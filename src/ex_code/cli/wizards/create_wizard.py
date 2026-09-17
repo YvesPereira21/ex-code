@@ -541,16 +541,61 @@ class CreateProjectWizard:
                 Choice("redis", "Redis Cache / Celery client"),
             ],
             FrameworkType.SPRINGBOOT: [
-                Choice("security", "Spring Security (Autenticação e Autorização)"),
-                Choice("actuator", "Spring Boot Actuator (Métricas e Healthchecks)"),
-                Choice("springdoc-openapi", "SpringDoc OpenAPI / Swagger UI"),
+                Choice(
+                    "data-jpa",
+                    name="Spring Data JPA - Persistência e repositórios SQL com Hibernate",
+                    enabled=True,
+                ),
+                Choice(
+                    "lombok",
+                    name="Lombok - Reduz código boilerplate (getters, setters, construtores)",
+                    enabled=True,
+                ),
+                Choice(
+                    "mapstruct",
+                    name="MapStruct - Mapeamentos eficientes entre DTOs e entidades",
+                    enabled=True,
+                ),
+                Choice(
+                    "validation",
+                    name="Validation - Bean Validation com anotações de validação (@NotNull, @Valid)",
+                    enabled=True,
+                ),
+                Choice(
+                    "security",
+                    name="Spring Security - Autenticação, autorização e controle de acesso",
+                    enabled=False,
+                ),
+                Choice(
+                    "flyway",
+                    name="Flyway Migration - Versionamento e controle automatizado de migrações de banco",
+                    enabled=False,
+                ),
+                Choice(
+                    "actuator",
+                    name="Spring Boot Actuator - Métricas operacionais, monitoramento e healthchecks",
+                    enabled=False,
+                ),
+                Choice(
+                    "devtools",
+                    name="Spring Boot DevTools - Reinicialização rápida e live reload em desenvolvimento",
+                    enabled=False,
+                ),
+                Choice(
+                    "springdoc-openapi",
+                    name="SpringDoc OpenAPI - Documentação interativa Swagger UI / OpenAPI 3",
+                    enabled=False,
+                ),
             ],
         }
 
         selected_deps = inquirer.checkbox(
-            message="Selecione bibliotecas adicionais pré-configuradas (espaço para marcar):",
+            message="Selecione as dependências do projeto (espaço para marcar/desmarcar):",
             choices=popular_deps.get(framework, []),
         ).execute()
+
+        if framework == FrameworkType.SPRINGBOOT:
+            return db_choice, list(selected_deps)
 
         custom_deps_raw = (
             inquirer.text(

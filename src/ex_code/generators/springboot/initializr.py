@@ -12,6 +12,85 @@ from pathlib import Path
 from ex_code.core.models import ProjectConfig
 from ex_code.core.types import DatabaseType, to_snake_case
 
+SPRING_DEPENDENCY_SPECS: dict[str, dict[str, str | bool]] = {
+    "data-jpa": {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-data-jpa",
+    },
+    "validation": {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-validation",
+    },
+    "security": {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-security",
+    },
+    "actuator": {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-actuator",
+    },
+    "devtools": {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-devtools",
+        "scope": "runtime",
+        "optional": True,
+    },
+    "flyway": {
+        "groupId": "org.flywaydb",
+        "artifactId": "flyway-core",
+    },
+    "springdoc-openapi": {
+        "groupId": "org.springdoc",
+        "artifactId": "springdoc-openapi-starter-webmvc-ui",
+        "version": "2.8.5",
+    },
+    "lombok": {
+        "groupId": "org.projectlombok",
+        "artifactId": "lombok",
+        "optional": True,
+    },
+    "mapstruct": {
+        "groupId": "org.mapstruct",
+        "artifactId": "mapstruct",
+        "version": "${org.mapstruct.version}",
+    },
+}
+
+DATABASE_DRIVER_SPECS: dict[DatabaseType, dict[str, str]] = {
+    DatabaseType.POSTGRESQL: {
+        "groupId": "org.postgresql",
+        "artifactId": "postgresql",
+        "scope": "runtime",
+    },
+    DatabaseType.MYSQL: {
+        "groupId": "com.mysql",
+        "artifactId": "mysql-connector-j",
+        "scope": "runtime",
+    },
+    DatabaseType.SQLITE: {
+        "groupId": "com.h2database",
+        "artifactId": "h2",
+        "scope": "runtime",
+    },
+}
+
+
+def format_dependency_xml(spec: dict[str, str | bool]) -> str:
+    """Format a dependency specification as a Maven XML snippet."""
+    lines = [
+        "\t\t<dependency>",
+        f"\t\t\t<groupId>{spec['groupId']}</groupId>",
+        f"\t\t\t<artifactId>{spec['artifactId']}</artifactId>",
+    ]
+    if "version" in spec:
+        lines.append(f"\t\t\t<version>{spec['version']}</version>")
+    if "scope" in spec:
+        lines.append(f"\t\t\t<scope>{spec['scope']}</scope>")
+    if spec.get("optional"):
+        lines.append("\t\t\t<optional>true</optional>")
+    lines.append("\t\t</dependency>")
+    return "\n".join(lines)
+
 
 class SpringInitializrClient:
     """Handles downloading starter archives from start.spring.io with offline fallback."""
@@ -47,7 +126,7 @@ class SpringInitializrClient:
             return True
 
         # Map dependencies
-        deps = ["web", "data-jpa", "lombok", "validation"]
+        deps = ["web"]
         if config.database == DatabaseType.POSTGRESQL:
             deps.append("postgresql")
         elif config.database == DatabaseType.MYSQL:
@@ -55,9 +134,31 @@ class SpringInitializrClient:
         elif config.database == DatabaseType.SQLITE:
             deps.append("h2")
 
-        for extra in config.dependencies:
+        initializr_dep_map = {
+            "data-jpa": "data-jpa",
+            "lombok": "lombok",
+            "validation": "validation",
+            "security": "security",
+            "actuator": "actuator",
+            "devtools": "devtools",
+            "flyway": "flyway",
+        }
+
+        selected_deps = (
+            config.dependencies
+            if config.dependencies
+            else ["data-jpa", "lombok", "validation"]
+        )
+        for extra in selected_deps:
             clean_dep = extra.strip().lower()
-            if clean_dep and clean_dep not in deps:
+            if clean_dep in initializr_dep_map:
+                mapped = initializr_dep_map[clean_dep]
+                if mapped not in deps:
+                    deps.append(mapped)
+            elif (
+                clean_dep not in ("mapstruct", "springdoc-openapi")
+                and clean_dep not in deps
+            ):
                 deps.append(clean_dep)
 
         data = {
@@ -170,6 +271,36 @@ public class {app_name} {{
         (pkg_path / f"{app_name}.java").write_text(app_java, encoding="utf-8")
         (res_path / "application.properties").write_text("", encoding="utf-8")
 
+        # Build dependency XML blocks
+        dep_blocks = [
+            """        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>"""
+        ]
+
+        if config.database in DATABASE_DRIVER_SPECS:
+            driver_spec = DATABASE_DRIVER_SPECS[config.database]
+            dep_blocks.append(format_dependency_xml(driver_spec))
+
+        effective_deps = {d.strip().lower() for d in config.dependencies}
+        if not effective_deps:
+            effective_deps = {"data-jpa", "validation", "lombok", "mapstruct"}
+
+        for dep_key, spec in SPRING_DEPENDENCY_SPECS.items():
+            if dep_key in effective_deps:
+                dep_blocks.append(format_dependency_xml(spec))
+
+        dep_blocks.append(
+            """        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>"""
+        )
+
+        deps_xml_str = "\n".join(dep_blocks)
+
         pom_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -191,33 +322,7 @@ public class {app_name} {{
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
     </properties>
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
-            <version>${{org.mapstruct.version}}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
+{deps_xml_str}
     </dependencies>
     <build>
         <plugins>

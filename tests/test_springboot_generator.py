@@ -80,6 +80,8 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     assert "org.mapstruct" in pom_content
     assert "mapstruct-processor" in pom_content
     assert "lombok-mapstruct-binding" in pom_content
+    assert "spring-boot-starter-security" in pom_content
+    assert "postgresql" in pom_content
     lombok_idx = pom_content.find("<artifactId>lombok</artifactId>")
     binding_idx = pom_content.find("<artifactId>lombok-mapstruct-binding</artifactId>")
     processor_idx = pom_content.find("<artifactId>mapstruct-processor</artifactId>")
@@ -322,3 +324,36 @@ def test_generate_springboot_with_custom_group_and_artifact(tmp_path: Path):
     # 3. Check package statement
     doc_java = (expected_pkg_dir / "model" / "Document.java").read_text()
     assert "package com.empresa.departamento.servicopedidos.model;" in doc_java
+
+
+def test_springboot_dependencies_and_drivers(tmp_path: Path):
+    """Test that pom.xml correctly includes all selected dependencies and database drivers."""
+    project_dir = tmp_path / "custom_deps_app"
+    pk = create_pk_field("Product", FrameworkType.SPRINGBOOT)
+    product_entity = EntityDefinition(name="Product", fields=[pk])
+
+    config = ProjectConfig(
+        name="custom-deps-app",
+        output_path=str(project_dir),
+        framework=FrameworkType.SPRINGBOOT,
+        database=DatabaseType.MYSQL,
+        dependencies=[
+            "security",
+            "flyway",
+            "actuator",
+            "devtools",
+            "springdoc-openapi",
+        ],
+        entities=[product_entity],
+    )
+
+    generator = SpringBootGenerator()
+    out_dir = generator.generate_project(config)
+
+    pom_content = (out_dir / "pom.xml").read_text()
+    assert "spring-boot-starter-security" in pom_content
+    assert "flyway-core" in pom_content
+    assert "spring-boot-starter-actuator" in pom_content
+    assert "spring-boot-devtools" in pom_content
+    assert "springdoc-openapi-starter-webmvc-ui" in pom_content
+    assert "mysql-connector-j" in pom_content
