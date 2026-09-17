@@ -365,39 +365,56 @@ class CreateProjectWizard:
 
         console.print(f"\n[bold cyan]Etapa 4: {title}[/bold cyan]")
 
+        patterns = (
+            "Nome, NomeList e NomeUpdate"
+            if is_fastapi
+            else "NomeDTO, NomeListDTO e NomeUpdateDTO"
+        )
         auto_generate = inquirer.confirm(
-            message=f"Deseja gerar automaticamente os {term_plural} padrões (Request e Response) baseados nos campos das entidades?",
+            message=f"Deseja gerar automaticamente os {term_plural} padrões ({patterns}) baseados nos campos das entidades?",
             default=True,
         ).execute()
         self.auto_generate_schemas = auto_generate
 
         for entity in entities:
             if auto_generate:
-                req_fields = [
+                pk_fields = [
+                    SchemaFieldDefinition(
+                        name=f.name, type=f.type, is_nullable=f.is_nullable
+                    )
+                    for f in entity.fields
+                    if f.is_pk
+                ]
+                non_pk_fields = [
                     SchemaFieldDefinition(
                         name=f.name, type=f.type, is_nullable=f.is_nullable
                     )
                     for f in entity.fields
                     if not f.is_pk
                 ]
-                res_fields = [
-                    SchemaFieldDefinition(
-                        name=f.name, type=f.type, is_nullable=f.is_nullable
-                    )
-                    for f in entity.fields
+                all_fields = pk_fields + non_pk_fields
+                list_fields = pk_fields + non_pk_fields[:2]
+                update_fields = [
+                    SchemaFieldDefinition(name=f.name, type=f.type, is_nullable=True)
+                    for f in non_pk_fields
                 ]
             else:
-                req_fields = []
-                res_fields = []
+                all_fields = []
+                list_fields = []
+                update_fields = []
 
+            # 1. Main schema (Nome / NomeDTO)
             entity.schemas.append(
-                SchemaDefinition(
-                    name=f"{entity.name}Request{suffix}", fields=req_fields
-                )
+                SchemaDefinition(name=f"{entity.name}{suffix}", fields=all_fields)
             )
+            # 2. List schema (NomeList / NomeListDTO)
+            entity.schemas.append(
+                SchemaDefinition(name=f"{entity.name}List{suffix}", fields=list_fields)
+            )
+            # 3. Update schema (NomeUpdate / NomeUpdateDTO)
             entity.schemas.append(
                 SchemaDefinition(
-                    name=f"{entity.name}Response{suffix}", fields=res_fields
+                    name=f"{entity.name}Update{suffix}", fields=update_fields
                 )
             )
 

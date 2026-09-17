@@ -122,33 +122,34 @@ class SpringBootGenerator(FrameworkGenerator):
             existing_dto_names = {s.name for s in entity.schemas}
             all_dtos = list(entity.schemas)
 
-            if f"{entity.name}RequestDTO" not in existing_dto_names:
-                req_fields = (
-                    [f for f in entity.fields if not f.is_pk]
-                    if config.auto_generate_schemas
-                    else []
-                )
-                req_schema = type(
-                    "ReqSchema",
-                    (),
-                    {
-                        "name": f"{entity.name}RequestDTO",
-                        "fields": req_fields,
-                    },
-                )()
-                all_dtos.insert(0, req_schema)
+            pk_fields = [f for f in entity.fields if f.is_pk]
+            non_pk_fields = [f for f in entity.fields if not f.is_pk]
 
-            if f"{entity.name}ResponseDTO" not in existing_dto_names:
-                res_fields = list(entity.fields) if config.auto_generate_schemas else []
-                res_schema = type(
-                    "ResSchema",
-                    (),
-                    {
-                        "name": f"{entity.name}ResponseDTO",
-                        "fields": res_fields,
-                    },
-                )()
-                all_dtos.insert(1, res_schema)
+            dto_specs = [
+                (
+                    f"{entity.name}DTO",
+                    list(entity.fields) if config.auto_generate_schemas else [],
+                ),
+                (
+                    f"{entity.name}ListDTO",
+                    (pk_fields + non_pk_fields[:2])
+                    if config.auto_generate_schemas
+                    else [],
+                ),
+                (
+                    f"{entity.name}UpdateDTO",
+                    non_pk_fields if config.auto_generate_schemas else [],
+                ),
+            ]
+
+            for dto_name, dto_fields in dto_specs:
+                if dto_name not in existing_dto_names:
+                    dto_schema = type(
+                        "SchemaStub",
+                        (),
+                        {"name": dto_name, "fields": dto_fields},
+                    )()
+                    all_dtos.append(dto_schema)
 
             for d_item in all_dtos:
                 self._render_file(
@@ -234,33 +235,34 @@ class SpringBootGenerator(FrameworkGenerator):
             existing_dto_names = {s.name for s in entity.schemas}
             all_dtos = list(entity.schemas)
 
-            if f"{entity.name}RequestDTO" not in existing_dto_names:
-                req_fields = (
-                    [f for f in entity.fields if not f.is_pk]
-                    if config.auto_generate_schemas
-                    else []
-                )
-                req_schema = type(
-                    "ReqSchema",
-                    (),
-                    {
-                        "name": f"{entity.name}RequestDTO",
-                        "fields": req_fields,
-                    },
-                )()
-                all_dtos.insert(0, req_schema)
+            pk_fields = [f for f in entity.fields if f.is_pk]
+            non_pk_fields = [f for f in entity.fields if not f.is_pk]
 
-            if f"{entity.name}ResponseDTO" not in existing_dto_names:
-                res_fields = list(entity.fields) if config.auto_generate_schemas else []
-                res_schema = type(
-                    "ResSchema",
-                    (),
-                    {
-                        "name": f"{entity.name}ResponseDTO",
-                        "fields": res_fields,
-                    },
-                )()
-                all_dtos.insert(1, res_schema)
+            dto_specs = [
+                (
+                    f"{entity.name}DTO",
+                    list(entity.fields) if config.auto_generate_schemas else [],
+                ),
+                (
+                    f"{entity.name}ListDTO",
+                    (pk_fields + non_pk_fields[:2])
+                    if config.auto_generate_schemas
+                    else [],
+                ),
+                (
+                    f"{entity.name}UpdateDTO",
+                    non_pk_fields if config.auto_generate_schemas else [],
+                ),
+            ]
+
+            for dto_name, dto_fields in dto_specs:
+                if dto_name not in existing_dto_names:
+                    dto_schema = type(
+                        "SchemaStub",
+                        (),
+                        {"name": dto_name, "fields": dto_fields},
+                    )()
+                    all_dtos.append(dto_schema)
 
             for d_item in all_dtos:
                 self._render_file(

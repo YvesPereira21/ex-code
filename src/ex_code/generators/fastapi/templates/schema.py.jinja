@@ -42,19 +42,57 @@ class {{ entity.name }}Update(BaseModel):
 {% endif %}
 
 
-class {{ entity.name }}Response({{ entity.name }}Base):
+class {{ entity.name }}(BaseModel):
 {% if config.auto_generate_schemas %}
 {% for field in entity.fields %}
 {% if field.is_pk %}
     {{ field.name }}: uuid.UUID
+{% elif field.is_nullable %}
+    {{ field.name }}: {{ field.type }} | None = None
+{% else %}
+    {{ field.name }}: {{ field.type }}
 {% endif %}
 {% endfor %}
+{% if not entity.fields %}
+    pass
+{% endif %}
+{% else %}
+    pass
 {% endif %}
 
     model_config = ConfigDict(from_attributes=True)
 
 
+class {{ entity.name }}List(BaseModel):
+{% if config.auto_generate_schemas %}
+{% for field in entity.fields if field.is_pk %}
+    {{ field.name }}: uuid.UUID
+{% endfor %}
+{% for field in entity.fields if not field.is_pk %}
+{% if loop.index <= 2 %}
+{% if field.is_nullable %}
+    {{ field.name }}: {{ field.type }} | None = None
+{% else %}
+    {{ field.name }}: {{ field.type }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if not entity.fields %}
+    pass
+{% endif %}
+{% else %}
+    pass
+{% endif %}
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Backwards compatibility alias
+{{ entity.name }}Response = {{ entity.name }}
+
+
 {% for schema in entity.schemas %}
+{% if schema.name not in [entity.name, entity.name ~ 'List', entity.name ~ 'Update'] %}
 class {{ schema.name }}(BaseModel):
 {% if schema.fields %}
 {% for f in schema.fields %}
@@ -70,4 +108,5 @@ class {{ schema.name }}(BaseModel):
     pass
 {% endif %}
 
+{% endif %}
 {% endfor %}

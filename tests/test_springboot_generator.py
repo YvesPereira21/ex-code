@@ -111,13 +111,18 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     dto_dirs = list(java_root.rglob("dto"))
     assert len(dto_dirs) == 1
     dto_dir = dto_dirs[0]
-    user_req_dto = (dto_dir / "UserRequestDTO.java").read_text()
-    assert "public record UserRequestDTO(" in user_req_dto
-    assert "String name" in user_req_dto
+    user_dto = (dto_dir / "UserDTO.java").read_text()
+    assert "public record UserDTO(" in user_dto
+    assert "String name" in user_dto
+    assert "UUID userId" in user_dto
 
-    user_res_dto = (dto_dir / "UserResponseDTO.java").read_text()
-    assert "public record UserResponseDTO(" in user_res_dto
-    assert "UUID userId" in user_res_dto
+    user_list_dto = (dto_dir / "UserListDTO.java").read_text()
+    assert "public record UserListDTO(" in user_list_dto
+    assert "UUID userId" in user_list_dto
+
+    user_update_dto = (dto_dir / "UserUpdateDTO.java").read_text()
+    assert "public record UserUpdateDTO(" in user_update_dto
+    assert "Optional<String> name" in user_update_dto
 
     # Check Repositories
     repo_dirs = list(java_root.rglob("repository"))
@@ -134,7 +139,7 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     mapper_dir = mapper_dirs[0]
     user_mapper = (mapper_dir / "UserMapper.java").read_text()
     assert "@Mapper" in user_mapper
-    assert "User toEntity(UserRequestDTO dto);" in user_mapper
+    assert "User toEntity(UserDTO dto);" in user_mapper
 
     # Check Services & Controllers
     service_dirs = list(java_root.rglob("service"))
@@ -189,8 +194,9 @@ def test_generate_springboot_domain(tmp_path: Path):
     feature_dir = item_feature[0]
 
     assert (feature_dir / "Item.java").is_file()
-    assert (feature_dir / "ItemRequestDTO.java").is_file()
-    assert (feature_dir / "ItemResponseDTO.java").is_file()
+    assert (feature_dir / "ItemDTO.java").is_file()
+    assert (feature_dir / "ItemListDTO.java").is_file()
+    assert (feature_dir / "ItemUpdateDTO.java").is_file()
     assert (feature_dir / "ItemRepository.java").is_file()
     assert (feature_dir / "ItemMapper.java").is_file()
     assert (feature_dir / "ItemService.java").is_file()
@@ -224,8 +230,10 @@ def test_generate_springboot_without_auto_schemas(tmp_path: Path):
     out_dir = generator.generate_project(config)
 
     java_root = out_dir / "src" / "main" / "java"
-    req_dto = next(java_root.rglob("ItemRequestDTO.java")).read_text()
-    res_dto = next(java_root.rglob("ItemResponseDTO.java")).read_text()
+    item_dto = next(java_root.rglob("ItemDTO.java")).read_text()
+    list_dto = next(java_root.rglob("ItemListDTO.java")).read_text()
+    up_dto = next(java_root.rglob("ItemUpdateDTO.java")).read_text()
 
-    assert "public record ItemRequestDTO() {}" in req_dto
-    assert "public record ItemResponseDTO() {}" in res_dto
+    assert "public record ItemDTO() {}" in item_dto
+    assert "public record ItemListDTO() {}" in list_dto
+    assert "public record ItemUpdateDTO() {}" in up_dto

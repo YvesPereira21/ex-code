@@ -24,22 +24,22 @@ public class {{ entity.name }}Controller {
     }
 
     @PostMapping
-    public ResponseEntity<{{ entity.name }}ResponseDTO> create(@RequestBody {{ entity.name }}RequestDTO dto) {
+    public ResponseEntity<{{ entity.name }}DTO> create(@RequestBody {{ entity.name }}DTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @GetMapping
-    public ResponseEntity<List<{{ entity.name }}ResponseDTO>> list() {
+    public ResponseEntity<List<{{ entity.name }}ListDTO>> list() {
         return ResponseEntity.ok(List.of());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<{{ entity.name }}ResponseDTO> getById(@PathVariable UUID id) {
+    public ResponseEntity<{{ entity.name }}DTO> getById(@PathVariable UUID id) {
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<{{ entity.name }}ResponseDTO> update(@PathVariable UUID id, @RequestBody {{ entity.name }}RequestDTO dto) {
+    public ResponseEntity<{{ entity.name }}DTO> update(@PathVariable UUID id, @RequestBody {{ entity.name }}UpdateDTO dto) {
         return ResponseEntity.ok().build();
     }
 

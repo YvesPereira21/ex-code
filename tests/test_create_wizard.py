@@ -106,24 +106,26 @@ def test_step_4_schemas_auto_fastapi():
 
         result = wizard.step_4_schemas([ent], framework=FrameworkType.FASTAPI)
         customer = result[0]
-        assert len(customer.schemas) == 2
+        assert len(customer.schemas) == 3
 
         schema_names = [s.name for s in customer.schemas]
-        assert "CustomerRequest" in schema_names
-        assert "CustomerResponse" in schema_names
-        assert "CustomerRequestDTO" not in schema_names
-        assert "CustomerResponseDTO" not in schema_names
+        assert "Customer" in schema_names
+        assert "CustomerList" in schema_names
+        assert "CustomerUpdate" in schema_names
 
-        req_schema = next(s for s in customer.schemas if s.name == "CustomerRequest")
-        assert len(req_schema.fields) == 1
-        assert req_schema.fields[0].name == "fullName"
+        main_schema = next(s for s in customer.schemas if s.name == "Customer")
+        assert len(main_schema.fields) == 2
 
-        res_schema = next(s for s in customer.schemas if s.name == "CustomerResponse")
-        assert len(res_schema.fields) == 2
+        list_schema = next(s for s in customer.schemas if s.name == "CustomerList")
+        assert len(list_schema.fields) == 2
+
+        up_schema = next(s for s in customer.schemas if s.name == "CustomerUpdate")
+        assert len(up_schema.fields) == 1
+        assert up_schema.fields[0].is_nullable is True
 
 
 def test_step_4_schemas_auto_springboot():
-    """Test schema auto-generation in step 4 for Spring Boot (with DTO suffix)."""
+    """Test schema auto-generation in step 4 for Spring Boot (NomeDTO, NomeListDTO, NomeUpdateDTO)."""
     wizard = CreateProjectWizard()
 
     pk = create_pk_field("Customer", FrameworkType.SPRINGBOOT)
@@ -137,11 +139,19 @@ def test_step_4_schemas_auto_springboot():
 
         result = wizard.step_4_schemas([ent], framework=FrameworkType.SPRINGBOOT)
         customer = result[0]
-        assert len(customer.schemas) == 2
+        assert len(customer.schemas) == 3
 
         schema_names = [s.name for s in customer.schemas]
-        assert "CustomerRequestDTO" in schema_names
-        assert "CustomerResponseDTO" in schema_names
+        assert "CustomerDTO" in schema_names
+        assert "CustomerListDTO" in schema_names
+        assert "CustomerUpdateDTO" in schema_names
+
+        main_dto = next(s for s in customer.schemas if s.name == "CustomerDTO")
+        assert len(main_dto.fields) == 2
+
+        up_dto = next(s for s in customer.schemas if s.name == "CustomerUpdateDTO")
+        assert len(up_dto.fields) == 1
+        assert up_dto.fields[0].is_nullable is True
 
 
 def test_step_4_schemas_no_auto_fastapi():
@@ -159,18 +169,16 @@ def test_step_4_schemas_no_auto_fastapi():
 
         result = wizard.step_4_schemas([ent], framework=FrameworkType.FASTAPI)
         customer = result[0]
-        assert len(customer.schemas) == 2
+        assert len(customer.schemas) == 3
         assert wizard.auto_generate_schemas is False
 
         schema_names = [s.name for s in customer.schemas]
-        assert "CustomerRequest" in schema_names
-        assert "CustomerResponse" in schema_names
+        assert "Customer" in schema_names
+        assert "CustomerList" in schema_names
+        assert "CustomerUpdate" in schema_names
 
-        req_schema = next(s for s in customer.schemas if s.name == "CustomerRequest")
-        assert len(req_schema.fields) == 0
-
-        res_schema = next(s for s in customer.schemas if s.name == "CustomerResponse")
-        assert len(res_schema.fields) == 0
+        for s in customer.schemas:
+            assert len(s.fields) == 0
 
 
 def test_step_4_schemas_no_auto_springboot():
@@ -188,17 +196,13 @@ def test_step_4_schemas_no_auto_springboot():
 
         result = wizard.step_4_schemas([ent], framework=FrameworkType.SPRINGBOOT)
         customer = result[0]
-        assert len(customer.schemas) == 2
+        assert len(customer.schemas) == 3
         assert wizard.auto_generate_schemas is False
 
         schema_names = [s.name for s in customer.schemas]
-        assert "CustomerRequestDTO" in schema_names
-        assert "CustomerResponseDTO" in schema_names
+        assert "CustomerDTO" in schema_names
+        assert "CustomerListDTO" in schema_names
+        assert "CustomerUpdateDTO" in schema_names
 
-        req_schema = next(s for s in customer.schemas if s.name == "CustomerRequestDTO")
-        assert len(req_schema.fields) == 0
-
-        res_schema = next(
-            s for s in customer.schemas if s.name == "CustomerResponseDTO"
-        )
-        assert len(res_schema.fields) == 0
+        for s in customer.schemas:
+            assert len(s.fields) == 0

@@ -7,7 +7,11 @@ import java.util.*;
 {% if schema.fields %}
 public record {{ schema.name }}(
 {% for f in schema.fields %}
+{% if "Update" in schema.name and not f.type.startswith("Optional") %}
+    Optional<{{ f.type }}> {{ f.name }}{{ "," if not loop.last else "" }}
+{% else %}
     {{ f.type }} {{ f.name }}{{ "," if not loop.last else "" }}
+{% endif %}
 {% endfor %}
 ) {}
 {% else %}

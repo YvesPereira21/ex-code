@@ -8,15 +8,17 @@ from app.core.database import get_db
 {% if config.architecture.value == 'layered' %}
 from app.models.{{ entity.name | lower }} import {{ entity.name }}
 from app.schemas.{{ entity.name | lower }} import (
+    {{ entity.name }},
     {{ entity.name }}Create,
-    {{ entity.name }}Response,
+    {{ entity.name }}List,
     {{ entity.name }}Update,
 )
 {% else %}
 from app.modules.{{ entity.name | lower }}.models import {{ entity.name }}
 from app.modules.{{ entity.name | lower }}.schemas import (
+    {{ entity.name }},
     {{ entity.name }}Create,
-    {{ entity.name }}Response,
+    {{ entity.name }}List,
     {{ entity.name }}Update,
 )
 {% endif %}
@@ -27,22 +29,22 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model={{ entity.name }}Response, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model={{ entity.name }}, status_code=status.HTTP_201_CREATED)
 async def create_{{ entity.name | lower }}(payload: {{ entity.name }}Create, db: AsyncSession = Depends(get_db)):
     pass
 
 
-@router.get("/", response_model=list[{{ entity.name }}Response])
+@router.get("/", response_model=list[{{ entity.name }}List])
 async def list_{{ entity.name | lower }}s(db: AsyncSession = Depends(get_db)):
     pass
 
 
-@router.get("/{id}", response_model={{ entity.name }}Response)
+@router.get("/{id}", response_model={{ entity.name }})
 async def get_{{ entity.name | lower }}(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     pass
 
 
-@router.put("/{id}", response_model={{ entity.name }}Response)
+@router.put("/{id}", response_model={{ entity.name }})
 async def update_{{ entity.name | lower }}(id: uuid.UUID, payload: {{ entity.name }}Update, db: AsyncSession = Depends(get_db)):
     pass
 

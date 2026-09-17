@@ -120,8 +120,17 @@ def test_generate_fastapi_layered(sample_fastapi_config: ProjectConfig):
         in order_model_content
     )
 
+    # Schema checks
+    user_schema_content = (out_dir / "app" / "schemas" / "user.py").read_text()
+    assert "class User(BaseModel):" in user_schema_content
+    assert "class UserList(BaseModel):" in user_schema_content
+    assert "class UserUpdate(BaseModel):" in user_schema_content
+
     # Verify CRUD order in router: POST -> GET / -> GET /{id} -> PUT /{id} -> DELETE /{id}
     user_router_content = (out_dir / "app" / "api" / "routers" / "user.py").read_text()
+    assert "response_model=list[UserList]" in user_router_content
+    assert "response_model=User" in user_router_content
+    assert "payload: UserUpdate" in user_router_content
     post_idx = user_router_content.find("def create_user")
     get_list_idx = user_router_content.find("def list_users")
     get_id_idx = user_router_content.find("def get_user")
