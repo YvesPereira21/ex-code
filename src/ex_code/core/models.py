@@ -198,6 +198,9 @@ class ProjectConfig(BaseModel):
     schemas_path: str | None = None
     repositories_path: str | None = None
     controllers_path: str | None = None
+    group_id: str | None = None
+    artifact_id: str | None = None
+    package_name: str | None = None
     version: str = "0.1.0"
 
     def get_entity(self, name: str) -> EntityDefinition | None:

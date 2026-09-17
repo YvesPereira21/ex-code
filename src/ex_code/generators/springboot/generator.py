@@ -34,7 +34,7 @@ class SpringBootGenerator(FrameworkGenerator):
         # 2. Enrich pom.xml with MapStruct and compiler plugin
         pom_path = target_dir / "pom.xml"
         if pom_path.is_file():
-            self._enrich_pom_xml(pom_path)
+            self._enrich_pom_xml(pom_path, config)
 
         # 3. Configure application.properties
         res_dir = target_dir / "src" / "main" / "resources"
@@ -79,8 +79,18 @@ class SpringBootGenerator(FrameworkGenerator):
             return base_dir, pkg_name
 
         # Default fallback package
-        pkg_suffix = to_snake_case(config.name).replace("-", "").replace("_", "")
-        pkg_name = f"com.excode.{pkg_suffix}"
+        group = config.group_id or "com.excode"
+        clean_art = (
+            to_snake_case(config.artifact_id or config.name)
+            .replace("-", "")
+            .replace("_", "")
+        )
+        if config.package_name:
+            pkg_name = config.package_name
+        else:
+            pkg_name = (
+                f"{group}.{clean_art}" if not group.endswith(f".{clean_art}") else group
+            )
         base_dir = java_root / Path(*pkg_name.split("."))
         base_dir.mkdir(parents=True, exist_ok=True)
         return base_dir, pkg_name
@@ -360,9 +370,29 @@ class SpringBootGenerator(FrameworkGenerator):
         content = template.render(**context)
         target_path.write_text(content, encoding="utf-8")
 
-    def _enrich_pom_xml(self, pom_path: Path) -> None:
-        """Ensure MapStruct dependency and compiler annotation processors are present in pom.xml."""
+    def _enrich_pom_xml(
+        self, pom_path: Path, config: ProjectConfig | None = None
+    ) -> None:
+        """Ensure MapStruct dependency, compiler annotation processors, and custom groupId/artifactId in pom.xml."""
+        import re
+
         content = pom_path.read_text(encoding="utf-8")
+
+        # 0. Check custom groupId and artifactId
+        if config and config.group_id:
+            content = re.sub(
+                r"(</parent>\s*<groupId>)[^<]+(</groupId>)",
+                rf"\g<1>{config.group_id}\g<2>",
+                content,
+                count=1,
+            )
+        if config and config.artifact_id:
+            content = re.sub(
+                r"(</parent>[\s\S]*?<artifactId>)[^<]+(</artifactId>)",
+                rf"\g<1>{config.artifact_id}\g<2>",
+                content,
+                count=1,
+            )
 
         # 1. Check properties
         if "<org.mapstruct.version>" not in content:

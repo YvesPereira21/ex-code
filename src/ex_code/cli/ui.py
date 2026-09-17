@@ -50,6 +50,10 @@ def display_project_summary(config) -> None:
         "Em Camadas" if config.architecture.value == "layered" else "Por Domínio",
     )
     summary_table.add_row("Banco de Dados", config.database.value.upper())
+    if getattr(config, "group_id", None):
+        summary_table.add_row("Group ID", config.group_id)
+    if getattr(config, "artifact_id", None):
+        summary_table.add_row("Artifact ID", config.artifact_id)
     if config.dependencies:
         summary_table.add_row("Dependências", ", ".join(config.dependencies))
 

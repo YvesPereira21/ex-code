@@ -27,13 +27,23 @@ class SpringInitializrClient:
         Returns True if successful, False if offline/failed.
         """
         target_dir.mkdir(parents=True, exist_ok=True)
-        artifact_id = to_snake_case(config.name).replace("_", "-")
-        pkg_suffix = to_snake_case(config.name).replace("-", "").replace("_", "")
-        package_name = f"com.excode.{pkg_suffix}"
+        artifact_id = config.artifact_id or to_snake_case(config.name).replace("_", "-")
+        group_id = config.group_id or "com.excode"
+        pkg_suffix = to_snake_case(artifact_id).replace("-", "").replace("_", "")
+        if config.package_name:
+            package_name = config.package_name
+        else:
+            package_name = (
+                f"{group_id}.{pkg_suffix}"
+                if not group_id.endswith(f".{pkg_suffix}")
+                else group_id
+            )
 
         # If offline requested or environment variable set, generate locally and instantly
         if offline or os.environ.get("EX_CODE_OFFLINE") == "1":
-            cls._create_offline_skeleton(config, target_dir, package_name, artifact_id)
+            cls._create_offline_skeleton(
+                config, target_dir, package_name, artifact_id, group_id
+            )
             return True
 
         # Map dependencies
@@ -54,7 +64,7 @@ class SpringInitializrClient:
             "type": "maven-project",
             "language": "java",
             "javaVersion": "21",
-            "groupId": "com.excode",
+            "groupId": group_id,
             "artifactId": artifact_id,
             "name": config.name,
             "packageName": package_name,
@@ -118,7 +128,9 @@ class SpringInitializrClient:
             pass
 
         # Fallback offline generator (instant, 100% offline, lightweight)
-        cls._create_offline_skeleton(config, target_dir, package_name, artifact_id)
+        cls._create_offline_skeleton(
+            config, target_dir, package_name, artifact_id, group_id
+        )
         return False
 
     @classmethod
@@ -128,6 +140,7 @@ class SpringInitializrClient:
         target_dir: Path,
         package_name: str,
         artifact_id: str,
+        group_id: str = "com.excode",
     ) -> None:
         """Create a valid baseline Maven Spring Boot project locally when offline."""
         app_name = "".join(
@@ -167,7 +180,7 @@ public class {app_name} {{
         <version>3.4.1</version>
         <relativePath/>
     </parent>
-    <groupId>com.excode</groupId>
+    <groupId>{group_id}</groupId>
     <artifactId>{artifact_id}</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>{config.name}</name>

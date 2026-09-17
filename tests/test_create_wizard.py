@@ -1,5 +1,6 @@
 """Unit tests for CreateProjectWizard and CLI UI utilities."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 from ex_code.cli.ui import (
@@ -206,3 +207,34 @@ def test_step_4_schemas_no_auto_springboot():
 
         for s in customer.schemas:
             assert len(s.fields) == 0
+
+
+def test_step_1_basic_info_springboot(tmp_path: Path):
+    wizard = CreateProjectWizard()
+
+    with (
+        patch(
+            "ex_code.cli.wizards.create_wizard.select_directory",
+            return_value=tmp_path,
+        ),
+        patch(
+            "ex_code.cli.wizards.create_wizard.get_default_workspace_dir",
+            return_value=tmp_path,
+        ),
+        patch("InquirerPy.inquirer.text") as mock_text,
+        patch("InquirerPy.inquirer.select") as mock_select,
+    ):
+        mock_text.return_value.execute.side_effect = [
+            "demo-service",  # project name
+            "Demo description",  # description
+            "com.empresa.departamento",  # groupId
+            "servico-pedidos",  # artifactId
+        ]
+        mock_select.return_value.execute.return_value = FrameworkType.SPRINGBOOT
+
+        info = wizard.step_1_basic_info()
+        assert info["name"] == "demo-service"
+        assert info["description"] == "Demo description"
+        assert info["framework"] == FrameworkType.SPRINGBOOT
+        assert info["group_id"] == "com.empresa.departamento"
+        assert info["artifact_id"] == "servico-pedidos"

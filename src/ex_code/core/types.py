@@ -133,3 +133,74 @@ def generate_pk_name(entity_name: str, framework: FrameworkType | str) -> str:
 def generate_db_column_name(name: str) -> str:
     """Generate database column name in snake_case."""
     return to_snake_case(name)
+
+
+JAVA_RESERVED_KEYWORDS = {
+    "abstract",
+    "assert",
+    "boolean",
+    "break",
+    "byte",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else",
+    "enum",
+    "extends",
+    "final",
+    "finally",
+    "float",
+    "for",
+    "goto",
+    "if",
+    "implements",
+    "import",
+    "instanceof",
+    "int",
+    "interface",
+    "long",
+    "native",
+    "new",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "return",
+    "short",
+    "static",
+    "strictfp",
+    "super",
+    "switch",
+    "synchronized",
+    "this",
+    "throw",
+    "throws",
+    "transient",
+    "try",
+    "void",
+    "volatile",
+    "while",
+    "true",
+    "false",
+    "null",
+}
+
+
+def is_valid_java_package(pkg: str) -> bool:
+    """Validate whether a string is a syntactically valid Java package name."""
+    if not pkg or not isinstance(pkg, str):
+        return False
+    parts = pkg.strip().split(".")
+    if not parts or any(not p for p in parts):
+        return False
+    ident_pattern = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+    for part in parts:
+        if not ident_pattern.match(part) or part.lower() in JAVA_RESERVED_KEYWORDS:
+            return False
+    return True

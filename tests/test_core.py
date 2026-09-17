@@ -70,6 +70,23 @@ class TestTypes:
         assert generate_db_column_name("userId") == "user_id"
         assert generate_db_column_name("createdAt") == "created_at"
 
+    def test_is_valid_java_package(self):
+        from ex_code.core.types import is_valid_java_package
+
+        assert is_valid_java_package("com.example") is True
+        assert is_valid_java_package("com.empresa.departamento") is True
+        assert is_valid_java_package("org.acme_corp.servico1") is True
+        assert is_valid_java_package("br.gov.sp.fazenda") is True
+
+        assert is_valid_java_package("") is False
+        assert is_valid_java_package("   ") is False
+        assert is_valid_java_package("com..example") is False
+        assert is_valid_java_package("com.123app") is False
+        assert is_valid_java_package("com.class.test") is False
+        assert is_valid_java_package("com.package.service") is False
+        assert is_valid_java_package("com.default") is False
+        assert is_valid_java_package("com/example") is False
+
 
 class TestModels:
     def test_create_pk_field(self):

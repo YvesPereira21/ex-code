@@ -264,3 +264,43 @@ def test_generate_springboot_without_auto_schemas(tmp_path: Path):
     assert "public record ItemDTO() {}" in item_dto
     assert "public record ItemListDTO() {}" in list_dto
     assert "public record ItemUpdateDTO() {}" in up_dto
+
+
+def test_generate_springboot_with_custom_group_and_artifact(tmp_path: Path):
+    project_dir = tmp_path / "springboot_custom_pkg"
+
+    doc_pk = create_pk_field("Document", FrameworkType.SPRINGBOOT)
+    doc_title = FieldDefinition(name="title", type="String")
+    doc_entity = EntityDefinition(name="Document", fields=[doc_pk, doc_title])
+
+    config = ProjectConfig(
+        name="custom-doc-svc",
+        output_path=str(project_dir),
+        framework=FrameworkType.SPRINGBOOT,
+        architecture=ArchitectureType.LAYERED,
+        database=DatabaseType.POSTGRESQL,
+        group_id="com.empresa.departamento",
+        artifact_id="servico-pedidos",
+        entities=[doc_entity],
+    )
+
+    generator = SpringBootGenerator()
+    out_dir = generator.generate_project(config)
+
+    # 1. pom.xml check
+    pom_content = (out_dir / "pom.xml").read_text()
+    assert "<groupId>com.empresa.departamento</groupId>" in pom_content
+    assert "<artifactId>servico-pedidos</artifactId>" in pom_content
+
+    # 2. Package directory structure check
+    java_root = out_dir / "src" / "main" / "java"
+    expected_pkg_dir = java_root / "com" / "empresa" / "departamento" / "servicopedidos"
+    assert expected_pkg_dir.is_dir()
+    assert (expected_pkg_dir / "model" / "Document.java").is_file()
+    assert (expected_pkg_dir / "dto" / "DocumentDTO.java").is_file()
+    assert (expected_pkg_dir / "repository" / "DocumentRepository.java").is_file()
+    assert (expected_pkg_dir / "controller" / "DocumentController.java").is_file()
+
+    # 3. Check package statement
+    doc_java = (expected_pkg_dir / "model" / "Document.java").read_text()
+    assert "package com.empresa.departamento.servicopedidos.model;" in doc_java

@@ -27,6 +27,7 @@ from ex_code.core.types import (
     FrameworkType,
     RelationshipType,
     get_supported_types,
+    is_valid_java_package,
     resolve_framework_type,
     to_pascal_case,
     to_snake_case,
@@ -80,6 +81,8 @@ class CreateProjectWizard:
             dependencies=dependencies,
             entities=entities,
             auto_generate_schemas=getattr(self, "auto_generate_schemas", True),
+            group_id=step1_data.get("group_id"),
+            artifact_id=step1_data.get("artifact_id"),
         )
 
         # Resumo e Confirmação
@@ -157,11 +160,46 @@ class CreateProjectWizard:
             default=FrameworkType.FASTAPI,
         ).execute()
 
+        group_id = None
+        artifact_id = None
+        if framework_choice == FrameworkType.SPRINGBOOT:
+            default_art = to_snake_case(name_clean).replace("_", "-")
+            group_id = (
+                inquirer.text(
+                    message="groupId do projeto (pacote Java base, ex: com.empresa.departamento):",
+                    default="com.excode",
+                    validate=lambda x: (
+                        is_valid_java_package(x.strip())
+                        or "Formato de pacote Java inválido (ex: com.empresa.departamento)."
+                    ),
+                )
+                .execute()
+                .strip()
+            )
+
+            artifact_id = (
+                inquirer.text(
+                    message="artifactId do projeto (ex: servico-pedidos):",
+                    default=default_art,
+                    validate=lambda x: (
+                        (
+                            len(x.strip()) > 0
+                            and all(c.isalnum() or c in "-_" for c in x.strip())
+                        )
+                        or "artifactId inválido (deve conter apenas letras, números, hífens ou underscores)."
+                    ),
+                )
+                .execute()
+                .strip()
+            )
+
         return {
             "output_path": out_path,
             "name": name_clean,
             "description": description.strip() or None,
             "framework": framework_choice,
+            "group_id": group_id,
+            "artifact_id": artifact_id,
         }
 
     def step_2_entities(self, framework: FrameworkType) -> list[EntityDefinition]:
