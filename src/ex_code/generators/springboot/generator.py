@@ -45,11 +45,16 @@ class SpringBootGenerator(FrameworkGenerator):
             config=config,
         )
 
-        # 4. Generate README.md
-        self._render_file("README.md.jinja", target_dir / "README.md", config=config)
-
-        # 5. Detect or create base package directory
+        # 4. Detect or create base package directory
         base_pkg_dir, base_pkg_name = self._resolve_base_package(target_dir, config)
+
+        # 5. Generate README.md
+        self._render_file(
+            "README.md.jinja",
+            target_dir / "README.md",
+            config=config,
+            base_package=base_pkg_name,
+        )
 
         # 6. Generate architecture components
         if config.architecture == ArchitectureType.LAYERED:
@@ -411,9 +416,8 @@ class SpringBootGenerator(FrameworkGenerator):
 \t</dependencies>"""
             content = content.replace("</dependencies>", mapstruct_dep, 1)
 
-        # 3. Check maven-compiler-plugin
-        if "maven-compiler-plugin" not in content and "</plugins>" in content:
-            compiler_plugin = """\t\t\t<plugin>
+        # 3. Check maven-compiler-plugin and annotationProcessorPaths
+        compiler_plugin = """\t\t\t<plugin>
 \t\t\t\t<groupId>org.apache.maven.plugins</groupId>
 \t\t\t\t<artifactId>maven-compiler-plugin</artifactId>
 \t\t\t\t<configuration>
@@ -434,8 +438,49 @@ class SpringBootGenerator(FrameworkGenerator):
 \t\t\t\t\t\t</path>
 \t\t\t\t\t</annotationProcessorPaths>
 \t\t\t\t</configuration>
-\t\t\t</plugin>
-\t\t</plugins>"""
-            content = content.replace("</plugins>", compiler_plugin, 1)
+\t\t\t</plugin>"""
+
+        if "maven-compiler-plugin" not in content:
+            if "</plugins>" in content:
+                content = content.replace(
+                    "</plugins>", f"{compiler_plugin}\n\t\t</plugins>", 1
+                )
+            elif "</build>" in content:
+                content = content.replace(
+                    "</build>",
+                    f"\t\t<plugins>\n{compiler_plugin}\n\t\t</plugins>\n\t</build>",
+                    1,
+                )
+            else:
+                build_block = f"\t<build>\n\t\t<plugins>\n{compiler_plugin}\n\t\t</plugins>\n\t</build>"
+                content = content.replace("</project>", f"{build_block}\n</project>", 1)
+        elif "mapstruct-processor" not in content:
+            paths_snippet = """\t\t\t\t\t<annotationProcessorPaths>
+\t\t\t\t\t\t<path>
+\t\t\t\t\t\t\t<groupId>org.projectlombok</groupId>
+\t\t\t\t\t\t\t<artifactId>lombok</artifactId>
+\t\t\t\t\t\t</path>
+\t\t\t\t\t\t<path>
+\t\t\t\t\t\t\t<groupId>org.projectlombok</groupId>
+\t\t\t\t\t\t\t<artifactId>lombok-mapstruct-binding</artifactId>
+\t\t\t\t\t\t\t<version>${lombok-mapstruct-binding.version}</version>
+\t\t\t\t\t\t</path>
+\t\t\t\t\t\t<path>
+\t\t\t\t\t\t\t<groupId>org.mapstruct</groupId>
+\t\t\t\t\t\t\t<artifactId>mapstruct-processor</artifactId>
+\t\t\t\t\t\t\t<version>${org.mapstruct.version}</version>
+\t\t\t\t\t\t</path>
+\t\t\t\t\t</annotationProcessorPaths>"""
+            if "<configuration>" in content:
+                content = content.replace(
+                    "<configuration>", f"<configuration>\n{paths_snippet}", 1
+                )
+            else:
+                content = re.sub(
+                    r"(<artifactId>maven-compiler-plugin</artifactId>)",
+                    rf"\1\n\t\t\t\t<configuration>\n{paths_snippet}\n\t\t\t\t</configuration>",
+                    content,
+                    count=1,
+                )
 
         pom_path.write_text(content, encoding="utf-8")

@@ -78,7 +78,18 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
 
     pom_content = (out_dir / "pom.xml").read_text()
     assert "org.mapstruct" in pom_content
-    assert "lombok" in pom_content
+    assert "mapstruct-processor" in pom_content
+    assert "lombok-mapstruct-binding" in pom_content
+    lombok_idx = pom_content.find("<artifactId>lombok</artifactId>")
+    binding_idx = pom_content.find("<artifactId>lombok-mapstruct-binding</artifactId>")
+    processor_idx = pom_content.find("<artifactId>mapstruct-processor</artifactId>")
+    assert 0 <= lombok_idx < binding_idx < processor_idx
+
+    # README MapStruct check
+    readme_content = (out_dir / "README.md").read_text()
+    assert "Configuração e Exemplo Prático do MapStruct" in readme_content
+    assert "annotationProcessorPaths" in readme_content
+    assert '@Mapper(componentModel = "spring")' in readme_content
 
     app_props = (
         out_dir / "src" / "main" / "resources" / "application.properties"
