@@ -154,7 +154,6 @@ class SpringBootGenerator(FrameworkGenerator):
 
             # 2. DTOs (Records)
             dto_imports = []
-            dtos_for_mapper = []
             existing_dto_names = {s.name for s in entity.schemas}
             all_dtos = list(entity.schemas)
 
@@ -195,7 +194,6 @@ class SpringBootGenerator(FrameworkGenerator):
                     schema=d_item,
                 )
                 dto_imports.append(f"{base_pkg}.dto.{d_item.name}")
-                dtos_for_mapper.append(d_item)
 
             # 3. Repository
             self._render_file(
@@ -212,9 +210,6 @@ class SpringBootGenerator(FrameworkGenerator):
                 mapper_dir / f"{entity.name}Mapper.java",
                 package_name=f"{base_pkg}.mapper",
                 entity=entity,
-                entity_import=f"{base_pkg}.model.{entity.name}",
-                dto_imports=dto_imports,
-                dtos=dtos_for_mapper,
             )
 
             # 5. Service stub
@@ -285,8 +280,6 @@ class SpringBootGenerator(FrameworkGenerator):
             )
 
             # 2. DTOs (Records)
-            dto_imports = []
-            dtos_for_mapper = []
             existing_dto_names = {s.name for s in entity.schemas}
             all_dtos = list(entity.schemas)
 
@@ -326,7 +319,6 @@ class SpringBootGenerator(FrameworkGenerator):
                     package_name=feature_pkg,
                     schema=d_item,
                 )
-                dtos_for_mapper.append(d_item)
 
             # 3. Repository
             self._render_file(
@@ -343,9 +335,6 @@ class SpringBootGenerator(FrameworkGenerator):
                 feature_dir / f"{entity.name}Mapper.java",
                 package_name=feature_pkg,
                 entity=entity,
-                entity_import=f"{feature_pkg}.{entity.name}",
-                dto_imports=dto_imports,
-                dtos=dtos_for_mapper,
             )
 
             # 5. Service

@@ -149,8 +149,10 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     assert len(mapper_dirs) == 1
     mapper_dir = mapper_dirs[0]
     user_mapper = (mapper_dir / "UserMapper.java").read_text()
-    assert "@Mapper" in user_mapper
-    assert "User toEntity(UserDTO dto);" in user_mapper
+    assert '@Mapper(componentModel = "spring")' in user_mapper
+    assert "public interface UserMapper {" in user_mapper
+    assert "toEntity" not in user_mapper
+    assert "toDto" not in user_mapper
 
     # Check Services & Controllers
     service_dirs = list(java_root.rglob("service"))
@@ -222,6 +224,11 @@ def test_generate_springboot_domain(tmp_path: Path):
     assert (feature_dir / "ItemUpdateDTO.java").is_file()
     assert (feature_dir / "ItemRepository.java").is_file()
     assert (feature_dir / "ItemMapper.java").is_file()
+    item_mapper = (feature_dir / "ItemMapper.java").read_text()
+    assert '@Mapper(componentModel = "spring")' in item_mapper
+    assert "public interface ItemMapper {" in item_mapper
+    assert "toEntity" not in item_mapper
+    assert "toDto" not in item_mapper
     assert (feature_dir / "ItemService.java").is_file()
     assert (feature_dir / "ItemController.java").is_file()
 
