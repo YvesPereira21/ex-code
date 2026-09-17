@@ -31,6 +31,10 @@ from ex_code.core.types import (
     to_pascal_case,
     to_snake_case,
 )
+from ex_code.core.user_config import (
+    get_default_workspace_dir,
+    set_default_workspace_dir,
+)
 from ex_code.generators.fastapi.generator import FastAPIGenerator
 from ex_code.generators.springboot.generator import SpringBootGenerator
 
@@ -116,6 +120,15 @@ class CreateProjectWizard:
         )
         if base_dir.is_file():
             base_dir = base_dir.parent
+
+        if get_default_workspace_dir() is None:
+            save_default = inquirer.confirm(
+                message=f"Deseja salvar '{base_dir}' como pasta padrão para novos projetos?",
+                default=True,
+            ).execute()
+            if save_default:
+                set_default_workspace_dir(base_dir)
+                print_success(f"Diretório padrão salvo em: [bold]{base_dir}[/bold]")
 
         name = inquirer.text(
             message=f"Nome do projeto (pasta a ser criada dentro de '{base_dir.name}'):",

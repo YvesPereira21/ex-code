@@ -6,6 +6,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from ex_code.core.user_config import get_default_workspace_dir
+
 console = Console()
 
 
@@ -132,7 +134,15 @@ def select_directory(
     from InquirerPy import inquirer
     from InquirerPy.base.control import Choice
 
-    current = (start_path or Path.cwd()).resolve()
+    default_workspace = get_default_workspace_dir()
+    if start_path is None:
+        if default_workspace and default_workspace.is_dir():
+            current = default_workspace.resolve()
+        else:
+            current = Path.cwd().resolve()
+    else:
+        current = start_path.resolve()
+
     if current.is_file():
         current = current.parent
 
@@ -156,6 +166,18 @@ def select_directory(
                 name=f"✔  Selecionar esta pasta ({current})",
             )
         ]
+
+        if (
+            default_workspace
+            and default_workspace.is_dir()
+            and current != default_workspace
+        ):
+            choices.append(
+                Choice(
+                    value=("nav", default_workspace),
+                    name=f"🏠 Ir para pasta padrão ({default_workspace.name or str(default_workspace)})",
+                )
+            )
 
         if current.parent != current:
             choices.append(
