@@ -153,3 +153,51 @@ def test_get_editable_files_fastapi(tmp_path: Path):
     assert "Model (Entidade)" in types
     assert "Schema" in types
     assert any("product.py" in f["filename"] for f in files)
+
+
+def test_scan_saves_schemas_path_in_metadata(tmp_path: Path):
+    from ex_code.core.metadata import MetadataManager
+
+    proj_dir = tmp_path / "fastapi_save_test"
+    pk = create_pk_field("Customer", FrameworkType.FASTAPI)
+    customer = EntityDefinition(
+        name="Customer", fields=[pk, FieldDefinition(name="email", type="str")]
+    )
+    config = ProjectConfig(
+        name="fastapi-save",
+        output_path=str(proj_dir),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        entities=[customer],
+    )
+    FastAPIGenerator().generate_project(config)
+
+    # Scan and verify schemas_path is recorded
+    scanned = ProjectScanner.scan_project(proj_dir)
+    assert scanned.schemas_path == "app/schemas"
+
+    # Verify directly from saved metadata file
+    loaded_meta = MetadataManager.load_metadata(proj_dir)
+    assert loaded_meta is not None
+    assert loaded_meta.schemas_path == "app/schemas"
+
+
+def test_ex_code_json_support(tmp_path: Path):
+    from ex_code.core.metadata import MetadataManager
+
+    proj_dir = tmp_path / "custom_meta_proj"
+    proj_dir.mkdir()
+    meta_file = proj_dir / "ex-code.json"
+    meta_file.write_text(
+        '{"name": "custom-meta", "output_path": "'
+        + str(proj_dir)
+        + '", "framework": "fastapi", "schemas_path": "app/schemas"}',
+        encoding="utf-8",
+    )
+
+    assert ProjectDetector.find_project_root(proj_dir) == proj_dir
+    assert MetadataManager.has_metadata(proj_dir) is True
+    loaded = MetadataManager.load_metadata(proj_dir)
+    assert loaded is not None
+    assert loaded.name == "custom-meta"
+    assert loaded.schemas_path == "app/schemas"

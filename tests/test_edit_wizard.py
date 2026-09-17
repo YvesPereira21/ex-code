@@ -184,3 +184,32 @@ def test_edit_wizard_entity_and_schema_choice_hints(tmp_path: Path):
         choices = call_kwargs["choices"]
         # The first choice should display the schema path hint
         assert "app/schemas/invoice.py" in choices[0].name
+
+
+def test_select_project_and_edit_wizard_run(tmp_path: Path):
+    from ex_code.cli.ui import select_project
+
+    proj_dir = tmp_path / "my_project"
+    proj_dir.mkdir()
+    (proj_dir / ".excode.json").write_text(
+        '{"name": "my_project", "output_path": "'
+        + str(proj_dir)
+        + '", "framework": "fastapi"}',
+        encoding="utf-8",
+    )
+
+    # Test select_project
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.return_value = proj_dir
+        selected = select_project(workspace_dir=tmp_path)
+        assert selected == proj_dir
+
+    # Test edit_wizard.run with select_project and immediate exit
+    wizard = EditProjectWizard()
+    with (
+        patch("ex_code.cli.wizards.edit_wizard.select_project", return_value=proj_dir),
+        patch("InquirerPy.inquirer.select") as mock_select,
+    ):
+        mock_select.return_value.execute.return_value = "exit"
+        res = wizard.run()
+        assert res == proj_dir

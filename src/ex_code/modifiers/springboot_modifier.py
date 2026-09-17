@@ -15,15 +15,30 @@ class SpringBootCodeModifier(CodeModifier):
         self, entity_name: str
     ) -> tuple[Path | None, list[Path]]:
         """Find the Java file for the entity and its corresponding DTO records."""
-        java_root = self.project_path / "src" / "main" / "java"
+        ent = self.config.get_entity(entity_name)
         entity_file: Path | None = None
         dto_files: list[Path] = []
 
+        if ent and ent.model_path:
+            cand = self.project_path / ent.model_path
+            if cand.is_file():
+                entity_file = cand
+
+        if ent and ent.schema_path:
+            cand = self.project_path / ent.schema_path
+            if cand.is_file():
+                dto_files.append(cand)
+
+        java_root = self.project_path / "src" / "main" / "java"
         if java_root.is_dir():
             for f in java_root.rglob("*.java"):
-                if f.name == f"{entity_name}.java":
+                if not entity_file and f.name == f"{entity_name}.java":
                     entity_file = f
-                elif f.name.startswith(entity_name) and "DTO" in f.name:
+                elif (
+                    f.name.startswith(entity_name)
+                    and ("DTO" in f.name or "Record" in f.name)
+                    and f not in dto_files
+                ):
                     dto_files.append(f)
 
         return entity_file, dto_files

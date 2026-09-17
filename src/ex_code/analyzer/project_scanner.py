@@ -34,6 +34,15 @@ class ProjectScanner:
         if not path.is_dir():
             raise FileNotFoundError(f"O diretório '{path}' não existe.")
 
+        # 1. Primary: load from .excode.json if present
+        if MetadataManager.has_metadata(path):
+            config = MetadataManager.load_metadata(path)
+            if config:
+                config.output_path = str(path)
+                cls._ensure_entity_paths(path, config)
+                MetadataManager.save_metadata(path, config)
+                return config
+
         framework = ProjectDetector.detect_framework(path)
         if not framework:
             raise ValueError(
@@ -41,14 +50,6 @@ class ProjectScanner:
             )
 
         architecture = ProjectDetector.detect_architecture(path, framework)
-
-        # 1. Primary: load from .excode.json if present
-        if MetadataManager.has_metadata(path):
-            config = MetadataManager.load_metadata(path)
-            if config:
-                config.output_path = str(path)
-                cls._ensure_entity_paths(path, config)
-                return config
 
         # 2. Fallback: static analysis
         entities: list[EntityDefinition] = []
@@ -66,6 +67,7 @@ class ProjectScanner:
             entities=entities,
         )
         cls._ensure_entity_paths(path, config)
+        MetadataManager.save_metadata(path, config)
         return config
 
     @classmethod
@@ -143,6 +145,91 @@ class ProjectScanner:
                             and jf.name == f"{en}Controller.java"
                         ):
                             entity.controller_path = rel
+
+                # Ensure schemas_path for Spring Boot
+                if not config.schemas_path:
+                    for entity in config.entities:
+                        if entity.schema_path:
+                            config.schemas_path = str(Path(entity.schema_path).parent)
+                            break
+                    if not config.schemas_path:
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() in (
+                                "dto",
+                                "dtos",
+                                "records",
+                                "record",
+                            ):
+                                config.schemas_path = str(d.relative_to(root))
+                                break
+                    if (
+                        not config.schemas_path
+                        and config.architecture == ArchitectureType.DOMAIN
+                    ):
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() == "domain":
+                                config.schemas_path = str(d.relative_to(root))
+                                break
+
+                # Ensure models_path for Spring Boot
+                if not config.models_path:
+                    for entity in config.entities:
+                        if entity.model_path:
+                            config.models_path = str(Path(entity.model_path).parent)
+                            break
+                    if not config.models_path:
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() in (
+                                "model",
+                                "models",
+                                "entity",
+                                "entities",
+                            ):
+                                config.models_path = str(d.relative_to(root))
+                                break
+                    if (
+                        not config.models_path
+                        and config.architecture == ArchitectureType.DOMAIN
+                    ):
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() == "domain":
+                                config.models_path = str(d.relative_to(root))
+                                break
+
+                # Ensure repositories_path for Spring Boot
+                if not config.repositories_path:
+                    for entity in config.entities:
+                        if entity.repository_path:
+                            config.repositories_path = str(
+                                Path(entity.repository_path).parent
+                            )
+                            break
+                    if not config.repositories_path:
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() in (
+                                "repository",
+                                "repositories",
+                            ):
+                                config.repositories_path = str(d.relative_to(root))
+                                break
+
+                # Ensure controllers_path for Spring Boot
+                if not config.controllers_path:
+                    for entity in config.entities:
+                        if entity.controller_path:
+                            config.controllers_path = str(
+                                Path(entity.controller_path).parent
+                            )
+                            break
+                    if not config.controllers_path:
+                        for d in java_root.rglob("*"):
+                            if d.is_dir() and d.name.lower() in (
+                                "controller",
+                                "controllers",
+                                "rest",
+                            ):
+                                config.controllers_path = str(d.relative_to(root))
+                                break
 
     @classmethod
     def get_editable_files(

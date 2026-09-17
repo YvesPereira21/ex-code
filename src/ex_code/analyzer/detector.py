@@ -19,6 +19,7 @@ class ProjectDetector:
         for candidate in [current, *current.parents]:
             if (
                 (candidate / ".excode.json").is_file()
+                or (candidate / "ex-code.json").is_file()
                 or (candidate / "pom.xml").is_file()
                 or (candidate / "build.gradle").is_file()
                 or (candidate / "build.gradle.kts").is_file()
@@ -40,6 +41,20 @@ class ProjectDetector:
         path = Path(project_path).resolve()
         if not path.is_dir():
             return None
+
+        # 0. Check for .excode.json or ex-code.json
+        for meta_name in (".excode.json", "ex-code.json"):
+            meta = path / meta_name
+            if meta.is_file():
+                try:
+                    import json
+
+                    data = json.loads(meta.read_text(encoding="utf-8"))
+                    fw = data.get("framework")
+                    if fw:
+                        return FrameworkType(str(fw).lower())
+                except (json.JSONDecodeError, OSError, ValueError):
+                    continue
 
         # Check for Spring Boot indicators
         pom_xml = path / "pom.xml"

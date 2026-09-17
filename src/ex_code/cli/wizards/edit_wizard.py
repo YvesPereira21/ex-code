@@ -9,13 +9,12 @@ from ex_code.analyzer.project_scanner import ProjectScanner
 from ex_code.cli.ui import (
     console,
     display_diff,
-    display_editable_files_table,
     display_project_summary,
     print_banner,
     print_error,
     print_success,
     print_warning,
-    select_directory,
+    select_project,
 )
 from ex_code.core.models import (
     FieldDefinition,
@@ -42,13 +41,12 @@ class EditProjectWizard:
             "EDITAR PROJETO", "Análise e modificação cirúrgica com backup preventivo"
         )
 
-        selected_target = select_directory(
-            message="Selecione a pasta ou arquivo do projeto existente para editar:",
-            show_files=True,
-        )
+        selected_project = select_project()
+        if not selected_project:
+            return None
 
         try:
-            config = ProjectScanner.scan_project(selected_target)
+            config = ProjectScanner.scan_project(selected_project)
             project_path = Path(config.output_path).resolve()
         except (FileNotFoundError, ValueError, OSError) as e:
             print_error(f"Falha ao analisar projeto: {e}")
@@ -57,70 +55,24 @@ class EditProjectWizard:
         print_success(f"Projeto identificado com sucesso: [bold]{config.name}[/bold]")
         display_project_summary(config)
 
-        editable_files = ProjectScanner.get_editable_files(project_path, config)
-        display_editable_files_table(editable_files)
-
         if config.framework == FrameworkType.FASTAPI:
             modifier: CodeModifier = FastAPICodeModifier(project_path, config)
         else:
             modifier: CodeModifier = SpringBootCodeModifier(project_path, config)
 
-        # Se o usuário tiver selecionado um arquivo específico diretamente
-        if selected_target.is_file():
-            target_stem = selected_target.stem.lower()
-            matching_entity = next(
-                (
-                    e
-                    for e in config.entities
-                    if e.name.lower() in target_stem
-                    or target_stem.startswith(e.name.lower())
-                ),
-                None,
-            )
-            if matching_entity:
-                confirm = inquirer.confirm(
-                    message=f"Você selecionou o arquivo '{selected_target.name}'. Deseja editar '{matching_entity.name}' diretamente?",
-                    default=True,
-                ).execute()
-                if confirm:
-                    if "schema" in target_stem or "dto" in target_stem:
-                        self._edit_schema_flow(
-                            modifier,
-                            config,
-                            editable_files,
-                            default_entity_name=matching_entity.name,
-                        )
-                    else:
-                        self._edit_entity_flow(
-                            modifier, config, default_entity_name=matching_entity.name
-                        )
+        term_schema = "Schema" if config.framework == FrameworkType.FASTAPI else "DTO"
 
         while True:
-            editable_files = ProjectScanner.get_editable_files(project_path, config)
-            term_schema = (
-                "Schema" if config.framework == FrameworkType.FASTAPI else "DTO"
-            )
-            term_schemas = (
-                "Schemas" if config.framework == FrameworkType.FASTAPI else "DTOs"
-            )
             choice = inquirer.select(
-                message="\nSelecione o que deseja editar:",
+                message=f"\nO que deseja alterar no projeto '{config.name}'?",
                 choices=[
                     Choice(
                         "entity",
-                        f"🏛️  Editar Entidade / Model ({len(config.entities)} disponíveis)",
+                        f"🏛️  Entidade ({len(config.entities)} disponíveis)",
                     ),
                     Choice(
                         "schema",
-                        f"📋 Editar {term_schemas} ({len(config.entities)} disponíveis)",
-                    ),
-                    Choice(
-                        "list_files",
-                        "🔍 Visualizar mapeamento de arquivos (.excode.json)",
-                    ),
-                    Choice(
-                        "file",
-                        f"📄 Selecionar por arquivo específico (Model ou {term_schema})",
+                        f"📋 {term_schema} ({len(config.entities)} disponíveis)",
                     ),
                     Choice("exit", "🚪 Finalizar / Sair"),
                 ],
@@ -131,11 +83,7 @@ class EditProjectWizard:
             elif choice == "entity":
                 self._edit_entity_flow(modifier, config)
             elif choice == "schema":
-                self._edit_schema_flow(modifier, config, editable_files)
-            elif choice == "list_files":
-                display_editable_files_table(editable_files)
-            elif choice == "file":
-                self._edit_by_file_flow(modifier, config, editable_files)
+                self._edit_schema_flow(modifier, config)
 
         print_success("Sessão de edição concluída.")
         return project_path
@@ -192,8 +140,12 @@ class EditProjectWizard:
             choices = []
             for e in config.entities:
                 file_hint = e.model_path or (
-                    f"app/models/{e.name.lower()}.py"
+                    f"{config.models_path}/{e.name.lower()}.py"
+                    if config.framework == FrameworkType.FASTAPI and config.models_path
+                    else f"app/models/{e.name.lower()}.py"
                     if config.framework == FrameworkType.FASTAPI
+                    else f"{config.models_path}/{e.name}.java"
+                    if config.models_path
                     else f"{e.name}.java"
                 )
                 choices.append(Choice(value=e.name, name=f"{e.name}  ({file_hint})"))
@@ -402,8 +354,12 @@ class EditProjectWizard:
             choices = []
             for e in config.entities:
                 file_hint = e.schema_path or (
-                    f"app/schemas/{e.name.lower()}.py"
+                    f"{config.schemas_path}/{e.name.lower()}.py"
+                    if config.framework == FrameworkType.FASTAPI and config.schemas_path
+                    else f"app/schemas/{e.name.lower()}.py"
                     if config.framework == FrameworkType.FASTAPI
+                    else f"{config.schemas_path}/{e.name}DTO.java"
+                    if config.schemas_path
                     else f"{e.name}DTO.java"
                 )
                 choices.append(

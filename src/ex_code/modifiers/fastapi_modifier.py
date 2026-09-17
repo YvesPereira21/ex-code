@@ -147,13 +147,26 @@ class FastAPICodeModifier(CodeModifier):
     def _get_model_and_schema_paths(self, entity_name: str) -> tuple[Path, Path]:
         """Resolve file paths for the entity model and schema based on architecture."""
         ent_key = entity_name.lower()
-        if self.config.architecture == ArchitectureType.LAYERED:
+        ent = self.config.get_entity(entity_name)
+
+        if ent and ent.model_path:
+            model_path = self.project_path / ent.model_path
+        elif self.config.models_path:
+            model_path = self.project_path / self.config.models_path / f"{ent_key}.py"
+        elif self.config.architecture == ArchitectureType.LAYERED:
             model_path = self.project_path / "app" / "models" / f"{ent_key}.py"
+        else:
+            model_path = self.project_path / "app" / "modules" / ent_key / "models.py"
+
+        if ent and ent.schema_path:
+            schema_path = self.project_path / ent.schema_path
+        elif self.config.schemas_path:
+            schema_path = self.project_path / self.config.schemas_path / f"{ent_key}.py"
+        elif self.config.architecture == ArchitectureType.LAYERED:
             schema_path = self.project_path / "app" / "schemas" / f"{ent_key}.py"
         else:
-            module_dir = self.project_path / "app" / "modules" / ent_key
-            model_path = module_dir / "models.py"
-            schema_path = module_dir / "schemas.py"
+            schema_path = self.project_path / "app" / "modules" / ent_key / "schemas.py"
+
         return model_path, schema_path
 
     def add_field(

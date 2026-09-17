@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -255,3 +257,125 @@ def select_directory(
                 .strip()
             )
             return Path(raw).resolve()
+
+
+def select_project(workspace_dir: Path | None = None) -> Path | None:
+    """
+    List available projects in workspace or current working directory and allow direct selection.
+    Avoids tedious folder-by-folder navigation or browsing internal files.
+    """
+    default_ws = workspace_dir or get_default_workspace_dir()
+    cwd = Path.cwd().resolve()
+
+    def _is_project(p: Path) -> bool:
+        if not p.is_dir():
+            return False
+        return (
+            (p / ".excode.json").is_file()
+            or (p / "ex-code.json").is_file()
+            or (p / "pom.xml").is_file()
+            or (p / "build.gradle").is_file()
+            or (p / "build.gradle.kts").is_file()
+            or (p / "pyproject.toml").is_file()
+            or (p / "requirements.txt").is_file()
+            or (p / "app" / "main.py").is_file()
+            or (p / "main.py").is_file()
+        )
+
+    def _project_tag(p: Path) -> str:
+        tags = []
+        if (
+            (p / "pom.xml").is_file()
+            or (p / "build.gradle").is_file()
+            or (p / "build.gradle.kts").is_file()
+        ):
+            tags.append("Spring Boot")
+        elif (
+            (p / "app" / "main.py").is_file()
+            or (p / "main.py").is_file()
+            or (p / "pyproject.toml").is_file()
+        ):
+            tags.append("FastAPI")
+        if (p / ".excode.json").is_file() or (p / "ex-code.json").is_file():
+            tags.append("ex-code")
+        return f"[{' | '.join(tags)}]" if tags else ""
+
+    candidate_paths: list[Path] = []
+    seen: set[Path] = set()
+
+    def _add_candidate(p: Path) -> None:
+        resolved = p.resolve()
+        if resolved not in seen and resolved.is_dir():
+            seen.add(resolved)
+            candidate_paths.append(resolved)
+
+    # 1. Check if cwd is itself a project
+    if _is_project(cwd):
+        _add_candidate(cwd)
+
+    # 2. Check subdirectories of default workspace
+    search_roots = []
+    if default_ws and default_ws.is_dir():
+        search_roots.append(default_ws)
+    if cwd not in search_roots:
+        search_roots.append(cwd)
+
+    for s_root in search_roots:
+        try:
+            for item in sorted(s_root.iterdir()):
+                if (
+                    item.is_dir()
+                    and not item.name.startswith((".", "_"))
+                    and item.name not in ("venv", "node_modules", "target")
+                    and (_is_project(item) or s_root == default_ws)
+                ):
+                    _add_candidate(item)
+        except OSError:
+            pass
+
+    choices = []
+    for cp in candidate_paths:
+        tag = _project_tag(cp)
+        tag_str = f"  {tag}" if tag else ""
+        label = f"📦 {cp.name}{tag_str}  ({cp})"
+        choices.append(Choice(value=cp, name=label))
+
+    choices.append(Choice(value="__browse__", name="📂 Navegar por outra pasta..."))
+    choices.append(
+        Choice(value="__manual__", name="✏️   Digitar caminho do projeto manualmente...")
+    )
+    choices.append(Choice(value=None, name="🚪 Cancelar / Voltar"))
+
+    selected = inquirer.select(
+        message="Selecione o projeto que deseja editar:",
+        choices=choices,
+        default=choices[0].value,
+    ).execute()
+
+    if selected is None:
+        return None
+    if isinstance(selected, Path):
+        return selected
+    if selected == "__browse__":
+        return select_directory(
+            message="Selecione a pasta do projeto existente:", show_files=False
+        )
+    if selected == "__manual__":
+        raw = (
+            inquirer.text(
+                message="Digite o caminho da pasta do projeto:",
+                default=str(cwd),
+                validate=lambda x: (
+                    len(x.strip()) > 0 or "O caminho não pode ser vazio."
+                ),
+            )
+            .execute()
+            .strip()
+        )
+        cand = Path(raw).expanduser().resolve()
+        if not cand.exists():
+            print_error(f"O caminho '{cand}' não existe.")
+            return None
+        return cand
+
+    return None

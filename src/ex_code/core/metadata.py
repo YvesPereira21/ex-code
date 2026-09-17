@@ -16,13 +16,19 @@ class MetadataManager:
 
     @staticmethod
     def get_metadata_path(project_path: Path | str) -> Path:
-        """Return the path to the .excode.json file for a project."""
-        return Path(project_path) / METADATA_FILENAME
+        """Return the path to the .excode.json or ex-code.json file for a project."""
+        p = Path(project_path)
+        if (p / "ex-code.json").is_file():
+            return p / "ex-code.json"
+        if (p / ".excode.json").is_file():
+            return p / ".excode.json"
+        return p / METADATA_FILENAME
 
     @classmethod
     def has_metadata(cls, project_path: Path | str) -> bool:
-        """Check if project contains .excode.json."""
-        return cls.get_metadata_path(project_path).is_file()
+        """Check if project contains .excode.json or ex-code.json."""
+        p = Path(project_path)
+        return (p / ".excode.json").is_file() or (p / "ex-code.json").is_file()
 
     @classmethod
     def save_metadata(cls, project_path: Path | str, config: ProjectConfig) -> Path:
@@ -76,10 +82,10 @@ class MetadataManager:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(abs_path, dest)
         else:
-            # Backup .excode.json if present
+            # Backup .excode.json / ex-code.json if present
             meta = cls.get_metadata_path(root)
             if meta.is_file():
-                shutil.copy2(meta, backup_dir / METADATA_FILENAME)
+                shutil.copy2(meta, backup_dir / meta.name)
 
             # Backup source trees excluding venv, git, target, etc.
             ignore_patterns = shutil.ignore_patterns(
