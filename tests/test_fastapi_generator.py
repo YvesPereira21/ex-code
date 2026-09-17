@@ -151,6 +151,14 @@ def test_generate_fastapi_layered(sample_fastapi_config: ProjectConfig):
     assert loaded_config is not None
     assert loaded_config.name == "fastapi-demo"
     assert len(loaded_config.entities) == 2
+    assert loaded_config.models_path == "app/models"
+    assert loaded_config.schemas_path == "app/schemas"
+    assert loaded_config.controllers_path == "app/api/routers"
+    u_ent = loaded_config.get_entity("User")
+    assert u_ent is not None
+    assert u_ent.model_path == "app/models/user.py"
+    assert u_ent.schema_path == "app/schemas/user.py"
+    assert u_ent.controller_path == "app/api/routers/user.py"
 
     # Verify all Python files are syntactically valid
     assert_all_python_files_compile(out_dir)
@@ -189,6 +197,18 @@ def test_generate_fastapi_domain(tmp_path: Path):
     # SQLite driver check
     reqs = (out_dir / "requirements.txt").read_text()
     assert "aiosqlite" in reqs
+
+    # Metadata check
+    loaded_config = MetadataManager.load_metadata(out_dir)
+    assert loaded_config is not None
+    assert loaded_config.models_path == "app/modules"
+    assert loaded_config.schemas_path == "app/modules"
+    assert loaded_config.controllers_path == "app/modules"
+    p_ent = loaded_config.get_entity("Product")
+    assert p_ent is not None
+    assert p_ent.model_path == "app/modules/product/models.py"
+    assert p_ent.schema_path == "app/modules/product/schemas.py"
+    assert p_ent.controller_path == "app/modules/product/router.py"
 
     # Verify all Python files are syntactically valid
     assert_all_python_files_compile(out_dir)

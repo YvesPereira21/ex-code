@@ -17,9 +17,12 @@ from ex_code.cli.ui import (
     print_warning,
     select_directory,
 )
-from ex_code.core.models import FieldDefinition, RelationshipDefinition
+from ex_code.core.models import (
+    FieldDefinition,
+    ProjectConfig,
+    RelationshipDefinition,
+)
 from ex_code.core.types import (
-    ArchitectureType,
     FrameworkType,
     RelationshipType,
     get_supported_types,
@@ -104,29 +107,35 @@ class EditProjectWizard:
                 message="\nSelecione o que deseja editar:",
                 choices=[
                     Choice(
-                        "file",
-                        f"📄 Selecionar arquivo específico para editar (Model ou {term_schema})",
+                        "entity",
+                        f"🏛️  Editar Entidade / Model ({len(config.entities)} disponíveis)",
                     ),
                     Choice(
-                        "entity",
-                        f"🏛️  Editar por Entidade (Model e {term_schema} sincronizados)",
+                        "schema",
+                        f"📋 Editar {term_schemas} ({len(config.entities)} disponíveis)",
                     ),
-                    Choice("schema", f"📋 Editar {term_schemas}"),
-                    Choice("list_files", "🔍 Visualizar tabela de arquivos editáveis"),
+                    Choice(
+                        "list_files",
+                        "🔍 Visualizar mapeamento de arquivos (.excode.json)",
+                    ),
+                    Choice(
+                        "file",
+                        f"📄 Selecionar por arquivo específico (Model ou {term_schema})",
+                    ),
                     Choice("exit", "🚪 Finalizar / Sair"),
                 ],
             ).execute()
 
             if choice == "exit":
                 break
-            elif choice == "file":
-                self._edit_by_file_flow(modifier, config, editable_files)
             elif choice == "entity":
                 self._edit_entity_flow(modifier, config)
             elif choice == "schema":
                 self._edit_schema_flow(modifier, config, editable_files)
             elif choice == "list_files":
                 display_editable_files_table(editable_files)
+            elif choice == "file":
+                self._edit_by_file_flow(modifier, config, editable_files)
 
         print_success("Sessão de edição concluída.")
         return project_path
@@ -182,14 +191,12 @@ class EditProjectWizard:
         else:
             choices = []
             for e in config.entities:
-                if config.framework == FrameworkType.FASTAPI:
-                    if config.architecture == ArchitectureType.LAYERED:
-                        file_hint = f"app/models/{e.name.lower()}.py"
-                    else:
-                        file_hint = f"app/modules/{e.name.lower()}/models.py"
-                else:
-                    file_hint = f"{e.name}.java"
-                choices.append(Choice(value=e.name, name=f"{e.name} ({file_hint})"))
+                file_hint = e.model_path or (
+                    f"app/models/{e.name.lower()}.py"
+                    if config.framework == FrameworkType.FASTAPI
+                    else f"{e.name}.java"
+                )
+                choices.append(Choice(value=e.name, name=f"{e.name}  ({file_hint})"))
             choices.append(Choice(value="back", name="Voltar"))
 
             selected_ent_name = inquirer.select(
@@ -394,17 +401,15 @@ class EditProjectWizard:
         else:
             choices = []
             for e in config.entities:
-                if config.framework == FrameworkType.FASTAPI:
-                    if config.architecture == ArchitectureType.LAYERED:
-                        file_hint = f"app/schemas/{e.name.lower()}.py"
-                    else:
-                        file_hint = f"app/modules/{e.name.lower()}/schemas.py"
-                else:
-                    file_hint = f"{e.name}DTO.java"
+                file_hint = e.schema_path or (
+                    f"app/schemas/{e.name.lower()}.py"
+                    if config.framework == FrameworkType.FASTAPI
+                    else f"{e.name}DTO.java"
+                )
                 choices.append(
                     Choice(
                         value=e.name,
-                        name=f"{term} de {e.name} ({file_hint})",
+                        name=f"{term} de {e.name}  ({file_hint})",
                     )
                 )
             choices.append(Choice(value="back", name="Voltar"))
@@ -477,6 +482,14 @@ class EditProjectWizard:
                 "[bold green]Criando backup e aplicando alterações...[/bold green]"
             ):
                 backup_dir = modifier.apply_changes(changes, make_backup=True)
+            if (
+                hasattr(modifier, "config")
+                and hasattr(modifier, "project_path")
+                and isinstance(getattr(modifier, "config", None), ProjectConfig)
+            ):
+                from ex_code.core.metadata import MetadataManager
+
+                MetadataManager.save_metadata(modifier.project_path, modifier.config)
             print_success("Alterações aplicadas com sucesso!")
             if backup_dir:
                 console.print(

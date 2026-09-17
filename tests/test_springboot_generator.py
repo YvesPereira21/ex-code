@@ -167,6 +167,18 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     loaded_config = MetadataManager.load_metadata(out_dir)
     assert loaded_config is not None
     assert loaded_config.framework == FrameworkType.SPRINGBOOT
+    assert loaded_config.models_path is not None
+    assert "model" in loaded_config.models_path
+    u_ent = loaded_config.get_entity("User")
+    assert u_ent is not None
+    assert u_ent.model_path is not None and u_ent.model_path.endswith("User.java")
+    assert u_ent.schema_path is not None and u_ent.schema_path.endswith("UserDTO.java")
+    assert u_ent.repository_path is not None and u_ent.repository_path.endswith(
+        "UserRepository.java"
+    )
+    assert u_ent.controller_path is not None and u_ent.controller_path.endswith(
+        "UserController.java"
+    )
 
 
 def test_generate_springboot_domain(tmp_path: Path):
@@ -207,6 +219,21 @@ def test_generate_springboot_domain(tmp_path: Path):
     assert ".domain.item;" in item_java
     assert "public class Item {" in item_java
     assert "private UUID itemId;" in item_java
+
+    # Check Metadata
+    loaded_config = MetadataManager.load_metadata(out_dir)
+    assert loaded_config is not None
+    assert loaded_config.models_path is not None
+    i_ent = loaded_config.get_entity("Item")
+    assert i_ent is not None
+    assert i_ent.model_path is not None and i_ent.model_path.endswith("Item.java")
+    assert i_ent.schema_path is not None and i_ent.schema_path.endswith("ItemDTO.java")
+    assert i_ent.repository_path is not None and i_ent.repository_path.endswith(
+        "ItemRepository.java"
+    )
+    assert i_ent.controller_path is not None and i_ent.controller_path.endswith(
+        "ItemController.java"
+    )
 
 
 def test_generate_springboot_without_auto_schemas(tmp_path: Path):

@@ -83,6 +83,56 @@ class EntityDefinition(BaseModel):
     fields: list[FieldDefinition] = Field(default_factory=list)
     relationships: list[RelationshipDefinition] = Field(default_factory=list)
     schemas: list[SchemaDefinition] = Field(default_factory=list)
+    model_path: str | None = None
+    schema_path: str | None = None
+    repository_path: str | None = None
+    controller_path: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_paths(cls, data: object) -> object:
+        if isinstance(data, dict):
+            if "models_path" in data and "model_path" not in data:
+                data["model_path"] = data["models_path"]
+            if "schemas_path" in data and "schema_path" not in data:
+                data["schema_path"] = data["schemas_path"]
+            if "repositories_path" in data and "repository_path" not in data:
+                data["repository_path"] = data["repositories_path"]
+            if "controllers_path" in data and "controller_path" not in data:
+                data["controller_path"] = data["controllers_path"]
+        return data
+
+    @property
+    def models_path(self) -> str | None:
+        return self.model_path
+
+    @models_path.setter
+    def models_path(self, val: str | None) -> None:
+        self.model_path = val
+
+    @property
+    def schemas_path(self) -> str | None:
+        return self.schema_path
+
+    @schemas_path.setter
+    def schemas_path(self, val: str | None) -> None:
+        self.schema_path = val
+
+    @property
+    def repositories_path(self) -> str | None:
+        return self.repository_path
+
+    @repositories_path.setter
+    def repositories_path(self, val: str | None) -> None:
+        self.repository_path = val
+
+    @property
+    def controllers_path(self) -> str | None:
+        return self.controller_path
+
+    @controllers_path.setter
+    def controllers_path(self, val: str | None) -> None:
+        self.controller_path = val
 
     @model_validator(mode="after")
     def set_default_table_name(self) -> "EntityDefinition":
@@ -144,6 +194,10 @@ class ProjectConfig(BaseModel):
     entities: list[EntityDefinition] = Field(default_factory=list)
     schemas: list[SchemaDefinition] = Field(default_factory=list)
     auto_generate_schemas: bool = True
+    models_path: str | None = None
+    schemas_path: str | None = None
+    repositories_path: str | None = None
+    controllers_path: str | None = None
     version: str = "0.1.0"
 
     def get_entity(self, name: str) -> EntityDefinition | None:

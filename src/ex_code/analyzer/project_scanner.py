@@ -47,6 +47,7 @@ class ProjectScanner:
             config = MetadataManager.load_metadata(path)
             if config:
                 config.output_path = str(path)
+                cls._ensure_entity_paths(path, config)
                 return config
 
         # 2. Fallback: static analysis
@@ -56,7 +57,7 @@ class ProjectScanner:
         elif framework == FrameworkType.SPRINGBOOT:
             entities = cls._scan_springboot_entities(path, architecture)
 
-        return ProjectConfig(
+        config = ProjectConfig(
             name=path.name,
             output_path=str(path),
             framework=framework,
@@ -64,6 +65,84 @@ class ProjectScanner:
             database=DatabaseType.POSTGRESQL,
             entities=entities,
         )
+        cls._ensure_entity_paths(path, config)
+        return config
+
+    @classmethod
+    def _ensure_entity_paths(cls, root: Path, config: ProjectConfig) -> None:
+        """Ensure every entity in config has relative paths populated for model, schema, repo, controller."""
+        if config.framework == FrameworkType.FASTAPI:
+            if config.architecture == ArchitectureType.LAYERED:
+                config.models_path = config.models_path or "app/models"
+                config.schemas_path = config.schemas_path or "app/schemas"
+                config.controllers_path = config.controllers_path or "app/api/routers"
+                for entity in config.entities:
+                    ek = entity.name.lower()
+                    if (
+                        not entity.model_path
+                        and (root / "app" / "models" / f"{ek}.py").is_file()
+                    ):
+                        entity.model_path = f"app/models/{ek}.py"
+                    if (
+                        not entity.schema_path
+                        and (root / "app" / "schemas" / f"{ek}.py").is_file()
+                    ):
+                        entity.schema_path = f"app/schemas/{ek}.py"
+                    if (
+                        not entity.controller_path
+                        and (root / "app" / "api" / "routers" / f"{ek}.py").is_file()
+                    ):
+                        entity.controller_path = f"app/api/routers/{ek}.py"
+            else:
+                config.models_path = config.models_path or "app/modules"
+                config.schemas_path = config.schemas_path or "app/modules"
+                config.controllers_path = config.controllers_path or "app/modules"
+                for entity in config.entities:
+                    ek = entity.name.lower()
+                    if (
+                        not entity.model_path
+                        and (root / "app" / "modules" / ek / "models.py").is_file()
+                    ):
+                        entity.model_path = f"app/modules/{ek}/models.py"
+                    if (
+                        not entity.schema_path
+                        and (root / "app" / "modules" / ek / "schemas.py").is_file()
+                    ):
+                        entity.schema_path = f"app/modules/{ek}/schemas.py"
+                    if (
+                        not entity.controller_path
+                        and (root / "app" / "modules" / ek / "router.py").is_file()
+                    ):
+                        entity.controller_path = f"app/modules/{ek}/router.py"
+                    if (
+                        not entity.repository_path
+                        and (root / "app" / "modules" / ek / "repository.py").is_file()
+                    ):
+                        entity.repository_path = f"app/modules/{ek}/repository.py"
+        elif config.framework == FrameworkType.SPRINGBOOT:
+            java_root = root / "src" / "main" / "java"
+            if java_root.is_dir():
+                java_files = list(java_root.rglob("*.java"))
+                for entity in config.entities:
+                    en = entity.name
+                    for jf in java_files:
+                        rel = str(jf.relative_to(root))
+                        if not entity.model_path and jf.name == f"{en}.java":
+                            entity.model_path = rel
+                        elif not entity.schema_path and (
+                            jf.name == f"{en}DTO.java" or jf.name == f"{en}Record.java"
+                        ):
+                            entity.schema_path = rel
+                        elif (
+                            not entity.repository_path
+                            and jf.name == f"{en}Repository.java"
+                        ):
+                            entity.repository_path = rel
+                        elif (
+                            not entity.controller_path
+                            and jf.name == f"{en}Controller.java"
+                        ):
+                            entity.controller_path = rel
 
     @classmethod
     def get_editable_files(
@@ -76,15 +155,79 @@ class ProjectScanner:
             config = cls.scan_project(root)
 
         files: list[dict[str, str]] = []
+        seen_paths: set[str] = set()
 
+        # 1. Primary: paths registered in entities (.excode.json)
+        term_schema = "Schema" if config.framework == FrameworkType.FASTAPI else "DTO"
+        for entity in config.entities:
+            if entity.model_path:
+                abs_p = root / entity.model_path
+                if abs_p.is_file() and entity.model_path not in seen_paths:
+                    seen_paths.add(entity.model_path)
+                    files.append(
+                        {
+                            "type": "Model (Entidade)",
+                            "entity": entity.name,
+                            "filename": abs_p.name,
+                            "rel_path": entity.model_path,
+                            "abs_path": str(abs_p),
+                        }
+                    )
+            if entity.schema_path:
+                abs_p = root / entity.schema_path
+                if abs_p.is_file() and entity.schema_path not in seen_paths:
+                    seen_paths.add(entity.schema_path)
+                    files.append(
+                        {
+                            "type": term_schema,
+                            "entity": entity.name,
+                            "filename": abs_p.name,
+                            "rel_path": entity.schema_path,
+                            "abs_path": str(abs_p),
+                        }
+                    )
+            if entity.repository_path:
+                abs_p = root / entity.repository_path
+                if abs_p.is_file() and entity.repository_path not in seen_paths:
+                    seen_paths.add(entity.repository_path)
+                    files.append(
+                        {
+                            "type": "Repository",
+                            "entity": entity.name,
+                            "filename": abs_p.name,
+                            "rel_path": entity.repository_path,
+                            "abs_path": str(abs_p),
+                        }
+                    )
+            if entity.controller_path:
+                abs_p = root / entity.controller_path
+                if abs_p.is_file() and entity.controller_path not in seen_paths:
+                    seen_paths.add(entity.controller_path)
+                    files.append(
+                        {
+                            "type": (
+                                "Controller"
+                                if config.framework == FrameworkType.SPRINGBOOT
+                                else "Router"
+                            ),
+                            "entity": entity.name,
+                            "filename": abs_p.name,
+                            "rel_path": entity.controller_path,
+                            "abs_path": str(abs_p),
+                        }
+                    )
+
+        # 2. Fallback scan for unmapped files
         if config.framework == FrameworkType.FASTAPI:
             if config.architecture == ArchitectureType.LAYERED:
                 models_dir = root / "app" / "models"
                 schemas_dir = root / "app" / "schemas"
                 if models_dir.is_dir():
                     for f in sorted(models_dir.glob("*.py")):
-                        if f.name == "__init__.py":
+                        rel_path = str(f.relative_to(root))
+                        if f.name == "__init__.py" or rel_path in seen_paths:
                             continue
+                        seen_paths.add(rel_path)
                         ent_name = f.stem.capitalize()
                         matched_ent = next(
                             (
@@ -99,14 +242,16 @@ class ProjectScanner:
                                 "type": "Model (Entidade)",
                                 "entity": matched_ent,
                                 "filename": f.name,
-                                "rel_path": str(f.relative_to(root)),
+                                "rel_path": rel_path,
                                 "abs_path": str(f),
                             }
                         )
                 if schemas_dir.is_dir():
                     for f in sorted(schemas_dir.glob("*.py")):
-                        if f.name == "__init__.py":
+                        rel_path = str(f.relative_to(root))
+                        if f.name == "__init__.py" or rel_path in seen_paths:
                             continue
+                        seen_paths.add(rel_path)
                         ent_name = f.stem.capitalize()
                         matched_ent = next(
                             (
@@ -121,7 +266,7 @@ class ProjectScanner:
                                 "type": "Schema",
                                 "entity": matched_ent,
                                 "filename": f.name,
-                                "rel_path": str(f.relative_to(root)),
+                                "rel_path": rel_path,
                                 "abs_path": str(f),
                             }
                         )
@@ -141,7 +286,11 @@ class ProjectScanner:
                                 ),
                                 ent_name,
                             )
-                            if m_file.is_file():
+                            if (
+                                m_file.is_file()
+                                and str(m_file.relative_to(root)) not in seen_paths
+                            ):
+                                seen_paths.add(str(m_file.relative_to(root)))
                                 files.append(
                                     {
                                         "type": "Model (Entidade)",
@@ -151,7 +300,11 @@ class ProjectScanner:
                                         "abs_path": str(m_file),
                                     }
                                 )
-                            if s_file.is_file():
+                            if (
+                                s_file.is_file()
+                                and str(s_file.relative_to(root)) not in seen_paths
+                            ):
+                                seen_paths.add(str(s_file.relative_to(root)))
                                 files.append(
                                     {
                                         "type": "Schema",
@@ -166,6 +319,10 @@ class ProjectScanner:
             java_root = root / "src" / "main" / "java"
             if java_root.is_dir():
                 for f in sorted(java_root.rglob("*.java")):
+                    rel_path = str(f.relative_to(root))
+                    if rel_path in seen_paths:
+                        continue
+                    seen_paths.add(rel_path)
                     name = f.stem
                     if "DTO" in name or "Record" in name:
                         ent_name = name.replace("DTO", "").replace("Record", "")
@@ -174,7 +331,7 @@ class ProjectScanner:
                                 "type": "DTO",
                                 "entity": ent_name,
                                 "filename": f.name,
-                                "rel_path": str(f.relative_to(root)),
+                                "rel_path": rel_path,
                                 "abs_path": str(f),
                             }
                         )
@@ -189,7 +346,7 @@ class ProjectScanner:
                                 "type": "Model (Entidade)",
                                 "entity": matched_ent,
                                 "filename": f.name,
-                                "rel_path": str(f.relative_to(root)),
+                                "rel_path": rel_path,
                                 "abs_path": str(f),
                             }
                         )

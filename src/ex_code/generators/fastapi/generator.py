@@ -96,8 +96,15 @@ class FastAPIGenerator(FrameworkGenerator):
         (app_dir / "api" / "__init__.py").touch()
         (routers_dir / "__init__.py").touch()
 
+        config.models_path = "app/models"
+        config.schemas_path = "app/schemas"
+        config.controllers_path = "app/api/routers"
+
         for entity in config.entities:
             entity_key = entity.name.lower()
+            entity.model_path = f"app/models/{entity_key}.py"
+            entity.schema_path = f"app/schemas/{entity_key}.py"
+            entity.controller_path = f"app/api/routers/{entity_key}.py"
             self._render_file(
                 "model.py.jinja",
                 models_dir / f"{entity_key}.py",
@@ -123,8 +130,15 @@ class FastAPIGenerator(FrameworkGenerator):
         modules_dir.mkdir(parents=True, exist_ok=True)
         (modules_dir / "__init__.py").touch()
 
+        config.models_path = "app/modules"
+        config.schemas_path = "app/modules"
+        config.controllers_path = "app/modules"
+
         for entity in config.entities:
             entity_key = entity.name.lower()
+            entity.model_path = f"app/modules/{entity_key}/models.py"
+            entity.schema_path = f"app/modules/{entity_key}/schemas.py"
+            entity.controller_path = f"app/modules/{entity_key}/router.py"
             feature_dir = modules_dir / entity_key
             feature_dir.mkdir(parents=True, exist_ok=True)
             (feature_dir / "__init__.py").touch()

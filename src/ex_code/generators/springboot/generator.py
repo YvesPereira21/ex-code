@@ -106,7 +106,28 @@ class SpringBootGenerator(FrameworkGenerator):
         ):
             d.mkdir(parents=True, exist_ok=True)
 
+        target_dir = Path(config.output_path).resolve()
+        config.models_path = str(model_dir.relative_to(target_dir))
+        config.schemas_path = str(dto_dir.relative_to(target_dir))
+        config.repositories_path = str(repo_dir.relative_to(target_dir))
+        config.controllers_path = str(controller_dir.relative_to(target_dir))
+
         for entity in config.entities:
+            entity.model_path = str(
+                (model_dir / f"{entity.name}.java").relative_to(target_dir)
+            )
+            entity.schema_path = str(
+                (dto_dir / f"{entity.name}DTO.java").relative_to(target_dir)
+            )
+            entity.repository_path = str(
+                (repo_dir / f"{entity.name}Repository.java").relative_to(target_dir)
+            )
+            entity.controller_path = str(
+                (controller_dir / f"{entity.name}Controller.java").relative_to(
+                    target_dir
+                )
+            )
+
             # 1. Entity
             self._render_file(
                 "Entity.java.jinja",
@@ -210,11 +231,30 @@ class SpringBootGenerator(FrameworkGenerator):
         domain_root = base_dir / "domain"
         domain_root.mkdir(parents=True, exist_ok=True)
 
+        target_dir = Path(config.output_path).resolve()
+        config.models_path = str(domain_root.relative_to(target_dir))
+        config.schemas_path = str(domain_root.relative_to(target_dir))
+        config.repositories_path = str(domain_root.relative_to(target_dir))
+        config.controllers_path = str(domain_root.relative_to(target_dir))
+
         for entity in config.entities:
             feature_key = entity.name.lower()
             feature_dir = domain_root / feature_key
             feature_dir.mkdir(parents=True, exist_ok=True)
             feature_pkg = f"{base_pkg}.domain.{feature_key}"
+
+            entity.model_path = str(
+                (feature_dir / f"{entity.name}.java").relative_to(target_dir)
+            )
+            entity.schema_path = str(
+                (feature_dir / f"{entity.name}DTO.java").relative_to(target_dir)
+            )
+            entity.repository_path = str(
+                (feature_dir / f"{entity.name}Repository.java").relative_to(target_dir)
+            )
+            entity.controller_path = str(
+                (feature_dir / f"{entity.name}Controller.java").relative_to(target_dir)
+            )
 
             # 1. Entity
             self._render_file(

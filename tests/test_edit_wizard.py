@@ -124,3 +124,63 @@ def test_edit_wizard_schema_flow(tmp_path: Path):
 
         wizard._edit_schema_flow(modifier, config)
         mock_preview.assert_called_once()
+
+
+def test_edit_wizard_preview_and_apply_saves_real_metadata(tmp_path: Path):
+    wizard = EditProjectWizard()
+    config = ProjectConfig(
+        name="meta-save-proj",
+        output_path=str(tmp_path),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+    )
+    modifier = FastAPICodeModifier(tmp_path, config)
+    mock_apply = MagicMock(return_value=tmp_path / ".excode/backups/1")
+
+    with (
+        patch.object(modifier, "apply_changes", mock_apply),
+        patch("InquirerPy.inquirer.confirm") as mock_confirm,
+    ):
+        mock_confirm.return_value.execute.return_value = True
+        wizard._preview_and_apply(modifier, [(tmp_path / "x.py", "a", "b")])
+
+    # Assert .excode.json was saved
+    meta_file = tmp_path / ".excode.json"
+    assert meta_file.is_file()
+
+
+def test_edit_wizard_entity_and_schema_choice_hints(tmp_path: Path):
+    wizard = EditProjectWizard()
+    pk = create_pk_field("Invoice", FrameworkType.FASTAPI)
+    inv = EntityDefinition(
+        name="Invoice",
+        fields=[pk],
+        model_path="app/models/invoice.py",
+        schema_path="app/schemas/invoice.py",
+    )
+    config = ProjectConfig(
+        name="hints-proj",
+        output_path=str(tmp_path),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        entities=[inv],
+    )
+    modifier = FastAPICodeModifier(tmp_path, config)
+
+    # Test entity flow choices
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.return_value = "back"
+        wizard._edit_entity_flow(modifier, config)
+        call_kwargs = mock_select.call_args[1]
+        choices = call_kwargs["choices"]
+        # The first choice should display the relative path hint
+        assert "app/models/invoice.py" in choices[0].name
+
+    # Test schema flow choices
+    with patch("InquirerPy.inquirer.select") as mock_select:
+        mock_select.return_value.execute.return_value = "back"
+        wizard._edit_schema_flow(modifier, config)
+        call_kwargs = mock_select.call_args[1]
+        choices = call_kwargs["choices"]
+        # The first choice should display the schema path hint
+        assert "app/schemas/invoice.py" in choices[0].name
