@@ -120,6 +120,15 @@ def test_generate_fastapi_layered(sample_fastapi_config: ProjectConfig):
         in order_model_content
     )
 
+    # Verify CRUD order in router: POST -> GET / -> GET /{id} -> PUT /{id} -> DELETE /{id}
+    user_router_content = (out_dir / "app" / "api" / "routers" / "user.py").read_text()
+    post_idx = user_router_content.find("def create_user")
+    get_list_idx = user_router_content.find("def list_users")
+    get_id_idx = user_router_content.find("def get_user")
+    put_id_idx = user_router_content.find("def update_user")
+    delete_id_idx = user_router_content.find("def delete_user")
+    assert 0 <= post_idx < get_list_idx < get_id_idx < put_id_idx < delete_id_idx
+
     # Dependencies check
     reqs = (out_dir / "requirements.txt").read_text()
     assert "fastapi" in reqs

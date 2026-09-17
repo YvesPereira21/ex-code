@@ -149,6 +149,14 @@ def test_generate_springboot_layered(sample_springboot_config: ProjectConfig):
     assert "@RestController" in user_controller
     assert "public class UserController {" in user_controller
 
+    # Verify CRUD order: POST -> GET -> GET /{id} -> PUT /{id} -> DELETE /{id}
+    post_idx = user_controller.find("@PostMapping")
+    get_list_idx = user_controller.find("@GetMapping\n")
+    get_id_idx = user_controller.find('@GetMapping("/{id}")')
+    put_id_idx = user_controller.find('@PutMapping("/{id}")')
+    delete_id_idx = user_controller.find('@DeleteMapping("/{id}")')
+    assert 0 <= post_idx < get_list_idx < get_id_idx < put_id_idx < delete_id_idx
+
     # Check Metadata
     assert MetadataManager.has_metadata(out_dir) is True
     loaded_config = MetadataManager.load_metadata(out_dir)

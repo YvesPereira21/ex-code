@@ -199,6 +199,7 @@ class SpringBootGenerator(FrameworkGenerator):
                 entity=entity,
                 entity_import=f"{base_pkg}.model.{entity.name}",
                 service_import=f"{base_pkg}.service.{entity.name}Service",
+                dto_imports=dto_imports,
             )
 
     def _generate_domain(

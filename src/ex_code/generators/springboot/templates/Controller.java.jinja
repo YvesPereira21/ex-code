@@ -1,10 +1,50 @@
 package {{ package_name }};
 
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import {{ entity_import }};
 import {{ service_import }};
+{% if dto_imports %}
+{% for imp in dto_imports %}
+import {{ imp }};
+{% endfor %}
+{% endif %}
 
 @RestController
 @RequestMapping("/api/{{ entity.name | lower }}s")
 public class {{ entity.name }}Controller {
+
+    private final {{ entity.name }}Service service;
+
+    public {{ entity.name }}Controller({{ entity.name }}Service service) {
+        this.service = service;
+    }
+
+    @PostMapping
+    public ResponseEntity<{{ entity.name }}ResponseDTO> create(@RequestBody {{ entity.name }}RequestDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<{{ entity.name }}ResponseDTO>> list() {
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<{{ entity.name }}ResponseDTO> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<{{ entity.name }}ResponseDTO> update(@PathVariable UUID id, @RequestBody {{ entity.name }}RequestDTO dto) {
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        return ResponseEntity.noContent().build();
+    }
 }
