@@ -94,18 +94,24 @@ class EditProjectWizard:
 
         while True:
             editable_files = ProjectScanner.get_editable_files(project_path, config)
+            term_schema = (
+                "Schema" if config.framework == FrameworkType.FASTAPI else "DTO"
+            )
+            term_schemas = (
+                "Schemas" if config.framework == FrameworkType.FASTAPI else "DTOs"
+            )
             choice = inquirer.select(
                 message="\nSelecione o que deseja editar:",
                 choices=[
                     Choice(
                         "file",
-                        "📄 Selecionar arquivo específico para editar (Model ou Schema/DTO)",
+                        f"📄 Selecionar arquivo específico para editar (Model ou {term_schema})",
                     ),
                     Choice(
                         "entity",
-                        "🏛️  Editar por Entidade (Model e Schema sincronizados)",
+                        f"🏛️  Editar por Entidade (Model e {term_schema} sincronizados)",
                     ),
-                    Choice("schema", "📋 Editar Schemas / DTOs"),
+                    Choice("schema", f"📋 Editar {term_schemas}"),
                     Choice("list_files", "🔍 Visualizar tabela de arquivos editáveis"),
                     Choice("exit", "🚪 Finalizar / Sair"),
                 ],
@@ -382,6 +388,7 @@ class EditProjectWizard:
             print_warning("Nenhum schema encontrado no projeto para edição.")
             return
 
+        term = "Schema" if config.framework == FrameworkType.FASTAPI else "DTO"
         if default_entity_name:
             selected_ent = config.get_entity(default_entity_name)
         else:
@@ -397,13 +404,13 @@ class EditProjectWizard:
                 choices.append(
                     Choice(
                         value=e.name,
-                        name=f"Schema / DTO de {e.name} ({file_hint})",
+                        name=f"{term} de {e.name} ({file_hint})",
                     )
                 )
             choices.append(Choice(value="back", name="Voltar"))
 
             selected_name = inquirer.select(
-                message="Selecione o Schema/DTO que deseja editar:",
+                message=f"Selecione o {term} que deseja editar:",
                 choices=choices,
             ).execute()
 
@@ -416,14 +423,14 @@ class EditProjectWizard:
             return
 
         console.print(
-            f"\n[cyan]Editando Schema/DTO de [bold]{selected_ent.name}[/bold]. As alterações serão sincronizadas com o código do projeto.[/cyan]\n"
+            f"\n[cyan]Editando {term} de [bold]{selected_ent.name}[/bold]. As alterações serão sincronizadas com o código do projeto.[/cyan]\n"
         )
 
         action = inquirer.select(
-            message=f"Ação para o Schema/DTO '{selected_ent.name}':",
+            message=f"Ação para o {term} '{selected_ent.name}':",
             choices=[
-                Choice("add_field", "Adicionar campo ao Schema (sincroniza Model)"),
-                Choice("remove_field", "Remover campo do Schema (sincroniza Model)"),
+                Choice("add_field", f"Adicionar campo ao {term} (sincroniza Model)"),
+                Choice("remove_field", f"Remover campo do {term} (sincroniza Model)"),
                 Choice("change_field_name", "Alterar nome de um campo"),
                 Choice("change_field_type", "Alterar tipo de um campo"),
                 Choice("back", "Voltar"),

@@ -59,7 +59,7 @@ class CreateProjectWizard:
         entities = self.step_3_relationships(entities)
 
         # ETAPA 4: Schemas / DTOs
-        entities = self.step_4_schemas(entities)
+        entities = self.step_4_schemas(entities, framework=step1_data["framework"])
 
         # ETAPA 5: Arquitetura
         architecture = self.step_5_architecture()
@@ -351,13 +351,21 @@ class CreateProjectWizard:
         return entities
 
     def step_4_schemas(
-        self, entities: list[EntityDefinition]
+        self,
+        entities: list[EntityDefinition],
+        framework: FrameworkType = FrameworkType.FASTAPI,
     ) -> list[EntityDefinition]:
         """Etapa 4: Definição e assistência de Schemas/DTOs."""
-        console.print("\n[bold cyan]Etapa 4: Schemas e DTOs[/bold cyan]")
+        is_fastapi = framework == FrameworkType.FASTAPI
+        term = "Schema" if is_fastapi else "DTO"
+        term_plural = "Schemas" if is_fastapi else "DTOs"
+        title = "Schemas" if is_fastapi else "DTOs (Data Transfer Objects)"
+        suffix = "" if is_fastapi else "DTO"
+
+        console.print(f"\n[bold cyan]Etapa 4: {title}[/bold cyan]")
 
         auto_generate = inquirer.confirm(
-            message="Deseja gerar automaticamente os DTOs/Schemas padrões (Request e Response) baseados nos campos das entidades?",
+            message=f"Deseja gerar automaticamente os {term_plural} padrões (Request e Response) baseados nos campos das entidades?",
             default=True,
         ).execute()
 
@@ -377,24 +385,26 @@ class CreateProjectWizard:
                     for f in entity.fields
                 ]
                 entity.schemas.append(
-                    SchemaDefinition(name=f"{entity.name}RequestDTO", fields=req_fields)
+                    SchemaDefinition(
+                        name=f"{entity.name}Request{suffix}", fields=req_fields
+                    )
                 )
                 entity.schemas.append(
                     SchemaDefinition(
-                        name=f"{entity.name}ResponseDTO", fields=res_fields
+                        name=f"{entity.name}Response{suffix}", fields=res_fields
                     )
                 )
 
-            # Opção de DTOs customizados
+            # Opção de customizados
             add_custom = inquirer.confirm(
-                message=f"Deseja criar DTOs/Schemas customizados para a entidade '{entity.name}'?",
+                message=f"Deseja criar {term_plural} customizados para a entidade '{entity.name}'?",
                 default=False,
             ).execute()
 
             while add_custom:
                 schema_name = (
                     inquirer.text(
-                        message=f"Nome do Schema/DTO customizado para '{entity.name}' (ou Enter para sair):",
+                        message=f"Nome do {term} customizado para '{entity.name}' (ou Enter para sair):",
                     )
                     .execute()
                     .strip()
@@ -406,7 +416,7 @@ class CreateProjectWizard:
                 fields: list[SchemaFieldDefinition] = []
                 for f in entity.fields:
                     include = inquirer.confirm(
-                        message=f"  Incluir campo '{f.name}: {f.type}' no schema?",
+                        message=f"  Incluir campo '{f.name}: {f.type}' no {term.lower()}?",
                         default=True,
                     ).execute()
                     if include:
@@ -418,7 +428,7 @@ class CreateProjectWizard:
 
                 entity.schemas.append(SchemaDefinition(name=schema_name, fields=fields))
                 console.print(
-                    f"[green]✔ Schema '{schema_name}' adicionado com {len(fields)} campos.[/green]"
+                    f"[green]✔ {term} '{schema_name}' adicionado com {len(fields)} campos.[/green]"
                 )
 
         return entities

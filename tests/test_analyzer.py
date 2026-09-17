@@ -151,5 +151,5 @@ def test_get_editable_files_fastapi(tmp_path: Path):
     assert len(files) >= 2
     types = [f["type"] for f in files]
     assert "Model (Entidade)" in types
-    assert "Schema / DTO" in types
+    assert "Schema" in types
     assert any("product.py" in f["filename"] for f in files)

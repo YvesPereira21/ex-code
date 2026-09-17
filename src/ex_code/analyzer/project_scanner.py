@@ -118,7 +118,7 @@ class ProjectScanner:
                         )
                         files.append(
                             {
-                                "type": "Schema / DTO",
+                                "type": "Schema",
                                 "entity": matched_ent,
                                 "filename": f.name,
                                 "rel_path": str(f.relative_to(root)),
@@ -154,7 +154,7 @@ class ProjectScanner:
                             if s_file.is_file():
                                 files.append(
                                     {
-                                        "type": "Schema / DTO",
+                                        "type": "Schema",
                                         "entity": matched_ent,
                                         "filename": f"{mod.name}/schemas.py",
                                         "rel_path": str(s_file.relative_to(root)),
@@ -171,7 +171,7 @@ class ProjectScanner:
                         ent_name = name.replace("DTO", "").replace("Record", "")
                         files.append(
                             {
-                                "type": "Schema / DTO",
+                                "type": "DTO",
                                 "entity": ent_name,
                                 "filename": f.name,
                                 "rel_path": str(f.relative_to(root)),
