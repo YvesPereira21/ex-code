@@ -142,3 +142,63 @@ def test_step_4_schemas_auto_springboot():
         schema_names = [s.name for s in customer.schemas]
         assert "CustomerRequestDTO" in schema_names
         assert "CustomerResponseDTO" in schema_names
+
+
+def test_step_4_schemas_no_auto_fastapi():
+    """Test schema generation when auto-generation is declined for FastAPI."""
+    wizard = CreateProjectWizard()
+
+    pk = create_pk_field("Customer", FrameworkType.FASTAPI)
+    name_field = FieldDefinition(name="fullName", type="str")
+    ent = EntityDefinition(name="Customer", fields=[pk, name_field])
+
+    with patch("InquirerPy.inquirer.confirm") as mock_confirm:
+        # 1st confirm: auto generate schemas? -> False
+        # 2nd confirm: add custom schemas? -> False
+        mock_confirm.return_value.execute.side_effect = [False, False]
+
+        result = wizard.step_4_schemas([ent], framework=FrameworkType.FASTAPI)
+        customer = result[0]
+        assert len(customer.schemas) == 2
+        assert wizard.auto_generate_schemas is False
+
+        schema_names = [s.name for s in customer.schemas]
+        assert "CustomerRequest" in schema_names
+        assert "CustomerResponse" in schema_names
+
+        req_schema = next(s for s in customer.schemas if s.name == "CustomerRequest")
+        assert len(req_schema.fields) == 0
+
+        res_schema = next(s for s in customer.schemas if s.name == "CustomerResponse")
+        assert len(res_schema.fields) == 0
+
+
+def test_step_4_schemas_no_auto_springboot():
+    """Test schema generation when auto-generation is declined for Spring Boot."""
+    wizard = CreateProjectWizard()
+
+    pk = create_pk_field("Customer", FrameworkType.SPRINGBOOT)
+    name_field = FieldDefinition(name="fullName", type="str")
+    ent = EntityDefinition(name="Customer", fields=[pk, name_field])
+
+    with patch("InquirerPy.inquirer.confirm") as mock_confirm:
+        # 1st confirm: auto generate DTOs? -> False
+        # 2nd confirm: add custom DTOs? -> False
+        mock_confirm.return_value.execute.side_effect = [False, False]
+
+        result = wizard.step_4_schemas([ent], framework=FrameworkType.SPRINGBOOT)
+        customer = result[0]
+        assert len(customer.schemas) == 2
+        assert wizard.auto_generate_schemas is False
+
+        schema_names = [s.name for s in customer.schemas]
+        assert "CustomerRequestDTO" in schema_names
+        assert "CustomerResponseDTO" in schema_names
+
+        req_schema = next(s for s in customer.schemas if s.name == "CustomerRequestDTO")
+        assert len(req_schema.fields) == 0
+
+        res_schema = next(
+            s for s in customer.schemas if s.name == "CustomerResponseDTO"
+        )
+        assert len(res_schema.fields) == 0

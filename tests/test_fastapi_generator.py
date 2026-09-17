@@ -174,3 +174,36 @@ def test_generate_fastapi_domain(tmp_path: Path):
 
     # Verify all Python files are syntactically valid
     assert_all_python_files_compile(out_dir)
+
+
+def test_generate_fastapi_without_auto_schemas(tmp_path: Path):
+    project_dir = tmp_path / "fastapi_no_auto_schemas"
+
+    item_pk = create_pk_field("Item", FrameworkType.FASTAPI)
+    item_name = FieldDefinition(name="title", type="str")
+    item_entity = EntityDefinition(
+        name="Item",
+        fields=[item_pk, item_name],
+    )
+
+    config = ProjectConfig(
+        name="no-auto-store",
+        output_path=str(project_dir),
+        framework=FrameworkType.FASTAPI,
+        architecture=ArchitectureType.LAYERED,
+        database=DatabaseType.SQLITE,
+        entities=[item_entity],
+        auto_generate_schemas=False,
+    )
+
+    generator = FastAPIGenerator()
+    out_dir = generator.generate_project(config)
+
+    schema_content = (out_dir / "app" / "schemas" / "item.py").read_text()
+    assert "class ItemBase(BaseModel):\n    pass" in schema_content
+    assert "class ItemCreate(ItemBase):\n    pass" in schema_content
+    assert "class ItemUpdate(BaseModel):\n    pass" in schema_content
+    assert "title: str" not in schema_content
+
+    # Verify all Python files are syntactically valid
+    assert_all_python_files_compile(out_dir)

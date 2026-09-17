@@ -119,23 +119,36 @@ class SpringBootGenerator(FrameworkGenerator):
             # 2. DTOs (Records)
             dto_imports = []
             dtos_for_mapper = []
-            # Generate default Request and Response DTOs
-            req_schema = type(
-                "ReqSchema",
-                (),
-                {
-                    "name": f"{entity.name}RequestDTO",
-                    "fields": [f for f in entity.fields if not f.is_pk],
-                },
-            )()
-            res_schema = type(
-                "ResSchema",
-                (),
-                {"name": f"{entity.name}ResponseDTO", "fields": entity.fields},
-            )()
+            existing_dto_names = {s.name for s in entity.schemas}
+            all_dtos = list(entity.schemas)
 
-            all_dtos = [req_schema, res_schema]
-            all_dtos.extend(entity.schemas)
+            if f"{entity.name}RequestDTO" not in existing_dto_names:
+                req_fields = (
+                    [f for f in entity.fields if not f.is_pk]
+                    if config.auto_generate_schemas
+                    else []
+                )
+                req_schema = type(
+                    "ReqSchema",
+                    (),
+                    {
+                        "name": f"{entity.name}RequestDTO",
+                        "fields": req_fields,
+                    },
+                )()
+                all_dtos.insert(0, req_schema)
+
+            if f"{entity.name}ResponseDTO" not in existing_dto_names:
+                res_fields = list(entity.fields) if config.auto_generate_schemas else []
+                res_schema = type(
+                    "ResSchema",
+                    (),
+                    {
+                        "name": f"{entity.name}ResponseDTO",
+                        "fields": res_fields,
+                    },
+                )()
+                all_dtos.insert(1, res_schema)
 
             for d_item in all_dtos:
                 self._render_file(
@@ -217,22 +230,36 @@ class SpringBootGenerator(FrameworkGenerator):
             # 2. DTOs (Records)
             dto_imports = []
             dtos_for_mapper = []
-            req_schema = type(
-                "ReqSchema",
-                (),
-                {
-                    "name": f"{entity.name}RequestDTO",
-                    "fields": [f for f in entity.fields if not f.is_pk],
-                },
-            )()
-            res_schema = type(
-                "ResSchema",
-                (),
-                {"name": f"{entity.name}ResponseDTO", "fields": entity.fields},
-            )()
+            existing_dto_names = {s.name for s in entity.schemas}
+            all_dtos = list(entity.schemas)
 
-            all_dtos = [req_schema, res_schema]
-            all_dtos.extend(entity.schemas)
+            if f"{entity.name}RequestDTO" not in existing_dto_names:
+                req_fields = (
+                    [f for f in entity.fields if not f.is_pk]
+                    if config.auto_generate_schemas
+                    else []
+                )
+                req_schema = type(
+                    "ReqSchema",
+                    (),
+                    {
+                        "name": f"{entity.name}RequestDTO",
+                        "fields": req_fields,
+                    },
+                )()
+                all_dtos.insert(0, req_schema)
+
+            if f"{entity.name}ResponseDTO" not in existing_dto_names:
+                res_fields = list(entity.fields) if config.auto_generate_schemas else []
+                res_schema = type(
+                    "ResSchema",
+                    (),
+                    {
+                        "name": f"{entity.name}ResponseDTO",
+                        "fields": res_fields,
+                    },
+                )()
+                all_dtos.insert(1, res_schema)
 
             for d_item in all_dtos:
                 self._render_file(

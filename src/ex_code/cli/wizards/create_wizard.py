@@ -79,6 +79,7 @@ class CreateProjectWizard:
             database=db_type,
             dependencies=dependencies,
             entities=entities,
+            auto_generate_schemas=getattr(self, "auto_generate_schemas", True),
         )
 
         # Resumo e Confirmação
@@ -368,6 +369,7 @@ class CreateProjectWizard:
             message=f"Deseja gerar automaticamente os {term_plural} padrões (Request e Response) baseados nos campos das entidades?",
             default=True,
         ).execute()
+        self.auto_generate_schemas = auto_generate
 
         for entity in entities:
             if auto_generate:
@@ -384,16 +386,20 @@ class CreateProjectWizard:
                     )
                     for f in entity.fields
                 ]
-                entity.schemas.append(
-                    SchemaDefinition(
-                        name=f"{entity.name}Request{suffix}", fields=req_fields
-                    )
+            else:
+                req_fields = []
+                res_fields = []
+
+            entity.schemas.append(
+                SchemaDefinition(
+                    name=f"{entity.name}Request{suffix}", fields=req_fields
                 )
-                entity.schemas.append(
-                    SchemaDefinition(
-                        name=f"{entity.name}Response{suffix}", fields=res_fields
-                    )
+            )
+            entity.schemas.append(
+                SchemaDefinition(
+                    name=f"{entity.name}Response{suffix}", fields=res_fields
                 )
+            )
 
             # Opção de customizados
             add_custom = inquirer.confirm(

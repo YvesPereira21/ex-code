@@ -143,6 +143,7 @@ class ProjectConfig(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     entities: list[EntityDefinition] = Field(default_factory=list)
     schemas: list[SchemaDefinition] = Field(default_factory=list)
+    auto_generate_schemas: bool = True
     version: str = "0.1.0"
 
     def get_entity(self, name: str) -> EntityDefinition | None:

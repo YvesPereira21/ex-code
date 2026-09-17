@@ -4,8 +4,12 @@ import java.math.*;
 import java.time.*;
 import java.util.*;
 
+{% if schema.fields %}
 public record {{ schema.name }}(
 {% for f in schema.fields %}
     {{ f.type }} {{ f.name }}{{ "," if not loop.last else "" }}
 {% endfor %}
 ) {}
+{% else %}
+public record {{ schema.name }}() {}
+{% endif %}

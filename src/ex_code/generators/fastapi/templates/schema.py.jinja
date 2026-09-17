@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class {{ entity.name }}Base(BaseModel):
+{% if config.auto_generate_schemas %}
 {% for field in entity.fields %}
 {% if not field.is_pk %}
 {% if field.is_nullable %}
@@ -17,6 +18,9 @@ class {{ entity.name }}Base(BaseModel):
 {% if entity.fields | length <= 1 %}
     pass
 {% endif %}
+{% else %}
+    pass
+{% endif %}
 
 
 class {{ entity.name }}Create({{ entity.name }}Base):
@@ -24,6 +28,7 @@ class {{ entity.name }}Create({{ entity.name }}Base):
 
 
 class {{ entity.name }}Update(BaseModel):
+{% if config.auto_generate_schemas %}
 {% for field in entity.fields %}
 {% if not field.is_pk %}
     {{ field.name }}: {{ field.type }} | None = None
@@ -32,20 +37,26 @@ class {{ entity.name }}Update(BaseModel):
 {% if entity.fields | length <= 1 %}
     pass
 {% endif %}
+{% else %}
+    pass
+{% endif %}
 
 
 class {{ entity.name }}Response({{ entity.name }}Base):
+{% if config.auto_generate_schemas %}
 {% for field in entity.fields %}
 {% if field.is_pk %}
     {{ field.name }}: uuid.UUID
 {% endif %}
 {% endfor %}
+{% endif %}
 
     model_config = ConfigDict(from_attributes=True)
 
 
 {% for schema in entity.schemas %}
 class {{ schema.name }}(BaseModel):
+{% if schema.fields %}
 {% for f in schema.fields %}
 {% if f.is_nullable %}
     {{ f.name }}: {{ f.type }} | None = None
@@ -53,10 +64,10 @@ class {{ schema.name }}(BaseModel):
     {{ f.name }}: {{ f.type }}
 {% endif %}
 {% endfor %}
-{% if not schema.fields %}
-    pass
-{% endif %}
 
     model_config = ConfigDict(from_attributes=True)
+{% else %}
+    pass
+{% endif %}
 
 {% endfor %}

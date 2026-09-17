@@ -193,3 +193,31 @@ def test_generate_springboot_domain(tmp_path: Path):
     assert ".domain.item;" in item_java
     assert "public class Item {" in item_java
     assert "private UUID itemId;" in item_java
+
+
+def test_generate_springboot_without_auto_schemas(tmp_path: Path):
+    project_dir = tmp_path / "springboot_no_auto_schemas"
+
+    item_pk = create_pk_field("Item", FrameworkType.SPRINGBOOT)
+    item_title = FieldDefinition(name="title", type="String")
+    item_entity = EntityDefinition(name="Item", fields=[item_pk, item_title])
+
+    config = ProjectConfig(
+        name="no-auto-app",
+        output_path=str(project_dir),
+        framework=FrameworkType.SPRINGBOOT,
+        architecture=ArchitectureType.LAYERED,
+        database=DatabaseType.POSTGRESQL,
+        entities=[item_entity],
+        auto_generate_schemas=False,
+    )
+
+    generator = SpringBootGenerator()
+    out_dir = generator.generate_project(config)
+
+    java_root = out_dir / "src" / "main" / "java"
+    req_dto = next(java_root.rglob("ItemRequestDTO.java")).read_text()
+    res_dto = next(java_root.rglob("ItemResponseDTO.java")).read_text()
+
+    assert "public record ItemRequestDTO() {}" in req_dto
+    assert "public record ItemResponseDTO() {}" in res_dto
